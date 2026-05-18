@@ -110,14 +110,14 @@ def fetch_news(interest: dict, lang: str, region: str, limit: int, seen_urls: se
 # ───────────────────────────────────────────
 # 글로벌 랭킹 (동적 개수)
 # ───────────────────────────────────────────
-def global_rank_and_select(articles_by_cat: dict) -> dict:
+def global_rank_and_select(articles_by_cat: dict) -> tuple:
     flat = []
     for cat_name, articles in articles_by_cat.items():
         for a in articles:
             flat.append({**a, 'category': cat_name})
 
     if not flat:
-        return articles_by_cat
+        return articles_by_cat, flat
 
     numbered = "\n".join(
         f"[{i}] [{a['category']}] {a['title']}"
@@ -132,6 +132,7 @@ def global_rank_and_select(articles_by_cat: dict) -> dict:
 - 고정 개수 없음. 오늘 이슈가 많으면 많이(최대 20개), 적으면 적게(최소 5개).
 - 카테고리 쿼터 없음. 오늘 핫한 분야가 있으면 거기서 더 뽑아도 됨.
 - 중복되거나 뻔한 기사는 과감히 제외.
+- 중요한 기사를 앞에 배치해줘. 배열 순서 = 중요도 순서.
 
 결과는 인덱스 번호만 JSON 배열로. 다른 말 없이 JSON만.
 예시: [0, 3, 7, 12, 15]
@@ -158,7 +159,7 @@ def global_rank_and_select(articles_by_cat: dict) -> dict:
     result = {cat: [] for cat in articles_by_cat}
     for a in selected:
         result[a['category']].append(a)
-    return result
+    return result, selected
 
 
 # ───────────────────────────────────────────
@@ -212,86 +213,105 @@ def generate_highlights(selected_by_cat: dict) -> str:
 # ───────────────────────────────────────────
 # HTML 리포트 생성 (Liquid Glass 디자인)
 # ───────────────────────────────────────────
-def generate_html(selected_by_cat: dict, summaries: dict, interests: list) -> str:
-    # 전체 기사를 중요도 순 플랫 리스트로 (카테고리 태그 포함)
-    flat = []
-    for cat, articles in selected_by_cat.items():
-        for a in articles:
-            flat.append({**a, 'cat': strip_emoji(cat)})
+def generate_html(selected_by_cat: dict, summaries: dict, interests: list, ranked_flat: list = None) -> str:
+    # ranked_flat: LLM 중요도 순으로 정렬된 전체 기사
+    if ranked_flat is None:
+        ranked_flat = []
+        for cat, articles in selected_by_cat.items():
+            for a in articles:
+                ranked_flat.append({**a, 'category': cat})
+
+    flat = [{**a, 'cat': strip_emoji(a.get('category', ''))} for a in ranked_flat]
 
     total_count   = len(flat)
     active_cats   = sum(1 for v in selected_by_cat.values() if v)
     total_sources = sum(len(i.get("custom_rss", [])) + 1 for i in interests)
 
-    def card_badge(cat):
-        return f'<span class="badge">{cat}</span>'
+    # 색상: 스크롤 내릴수록 보라→파랑→청록→틸
+    COLOR_STOPS = [
+        ("rgba(102,58,243,0.28)", "rgba(102,58,243,0.07)"),
+        ("rgba(80,100,240,0.24)", "rgba(80,100,240,0.06)"),
+        ("rgba(50,130,230,0.22)", "rgba(50,130,230,0.05)"),
+        ("rgba(30,150,210,0.20)", "rgba(30,150,210,0.05)"),
+        ("rgba(20,160,190,0.18)", "rgba(20,160,190,0.04)"),
+        ("rgba(15,165,170,0.17)", "rgba(15,165,170,0.04)"),
+        ("rgba(10,160,150,0.16)", "rgba(10,160,150,0.04)"),
+        ("rgba(15,150,130,0.14)", "rgba(15,150,130,0.03)"),
+    ]
 
-    def card_source(domain):
-        return f'<span class="src">{domain}</span>'
+    # 크기: rank 내려갈수록 축소
+    SIZE_STEPS = [
+        ("2rem",   "15px", "600"),   # 1위 히어로
+        ("1.15rem","14px", "600"),   # 2위
+        ("1.08rem","14px", "600"),   # 3위
+        ("1.02rem","13.5px","600"),  # 4위
+        ("0.97rem","13px", "500"),   # 5위
+        ("0.93rem","13px", "500"),   # 6위
+        ("0.90rem","12.5px","500"),  # 7위
+        ("0.87rem","12.5px","500"),  # 8위+
+    ]
 
-    def card_read(link):
-        return f'<a class="read-btn" href="{link}" target="_blank" rel="noopener">읽기</a>'
+    def get_color(idx):
+        return COLOR_STOPS[min(idx, len(COLOR_STOPS)-1)]
 
-    # ── 1위: 히어로 카드 (풀 너비)
-    hero_html = ""
+    def get_size(idx):
+        return SIZE_STEPS[min(idx, len(SIZE_STEPS)-1)]
+
+    # ── 히어로 카드 (1위 풀너비)
+    all_cards_html = ""
     if flat:
-        a = flat[0]
-        link    = a.get("link", "#")
-        title   = a.get("title", "")
-        summary = summaries.get(link, "").replace("\n", "<br>")
+        a       = flat[0]
+        link    = a.get("link","#")
+        title   = a.get("title","")
+        summary = summaries.get(link,"").replace("\n","<br>")
         domain  = link.split("/")[2] if "/" in link else link
-        hero_html = f"""
-        <article class="card card-hero">
-          <div class="card-inner">
-            <div class="card-meta">
-              {card_badge(a["cat"])}
-              <span class="card-rank">01</span>
-            </div>
-            <h2 class="card-title"><a href="{link}" target="_blank" rel="noopener">{title}</a></h2>
-            <p class="card-summary">{summary}</p>
-            <div class="card-foot">{card_source(domain)}{card_read(link)}</div>
+        glow, tint = get_color(0)
+        tsz, ssz, tw = get_size(0)
+        all_cards_html += f"""
+        <article class="card card-hero-full" style="background:{tint};box-shadow:{glow} 0px 0px 0px 1px inset,rgba(255,255,255,0.07) 0px 1px 0px inset,rgba(0,0,0,0.45) 0px 24px 48px">
+          <div class="hero-num">01</div>
+          <div class="hero-body">
+            <span class="badge">{a["cat"]}</span>
+            <h2 style="font-size:{tsz};font-weight:{tw};color:#fff;line-height:1.2;letter-spacing:-0.025em;margin:14px 0 16px">
+              <a href="{link}" target="_blank" rel="noopener">{title}</a>
+            </h2>
+            <p style="font-size:{ssz};color:var(--wh);line-height:1.75;margin-bottom:20px">{summary}</p>
+            <div class="card-foot"><span class="src">{domain}</span><a class="read-btn" href="{link}" target="_blank" rel="noopener">읽기</a></div>
           </div>
         </article>"""
 
-    # ── 2~3위: 피처 카드 (2열)
-    feature_html = ""
-    for i, a in enumerate(flat[1:3], 2):
-        link    = a.get("link", "#")
-        title   = a.get("title", "")
-        summary = summaries.get(link, "").replace("\n", "<br>")
+    # ── 2위~: 지그재그 교차 레이아웃
+    for i, a in enumerate(flat[1:], 1):
+        link    = a.get("link","#")
+        title   = a.get("title","")
+        summary = summaries.get(link,"").replace("\n","<br>")
         domain  = link.split("/")[2] if "/" in link else link
-        feature_html += f"""
-        <article class="card card-feature">
-          <div class="card-inner">
-            <div class="card-meta">
-              {card_badge(a["cat"])}
-              <span class="card-rank">0{i}</span>
-            </div>
-            <h3 class="card-title"><a href="{link}" target="_blank" rel="noopener">{title}</a></h3>
-            <p class="card-summary">{summary}</p>
-            <div class="card-foot">{card_source(domain)}{card_read(link)}</div>
-          </div>
-        </article>"""
+        num     = f"0{i+1}" if i+1 < 10 else str(i+1)
+        glow, tint = get_color(i)
+        tsz, ssz, tw = get_size(i)
+        side    = "normal" if i % 2 == 1 else "reverse"  # 홀수=텍스트 왼쪽, 짝수=텍스트 오른쪽
 
-    # ── 4위~: 그리드 카드 (3열)
-    grid_html = ""
-    for i, a in enumerate(flat[3:], 4):
-        link    = a.get("link", "#")
-        title   = a.get("title", "")
-        summary = summaries.get(link, "").replace("\n", "<br>")
-        domain  = link.split("/")[2] if "/" in link else link
-        num     = f"0{i}" if i < 10 else str(i)
-        grid_html += f"""
-        <article class="card card-grid-item">
-          <div class="card-inner">
-            <div class="card-meta">
-              {card_badge(a["cat"])}
-              <span class="card-rank">{num}</span>
-            </div>
-            <h3 class="card-title"><a href="{link}" target="_blank" rel="noopener">{title}</a></h3>
-            <p class="card-summary">{summary}</p>
-            <div class="card-foot">{card_source(domain)}{card_read(link)}</div>
-          </div>
+        deco_side = f"""
+          <div class="zz-deco">
+            <div class="zz-num">{num}</div>
+            <span class="badge" style="margin-top:12px">{a["cat"]}</span>
+            <div class="dot-grid"></div>
+          </div>"""
+
+        text_side = f"""
+          <div class="zz-text">
+            <h3 style="font-size:{tsz};font-weight:{tw};color:#d8ecf8;line-height:1.35;letter-spacing:-0.015em;margin-bottom:12px">
+              <a href="{link}" target="_blank" rel="noopener">{title}</a>
+            </h3>
+            <p style="font-size:{ssz};color:var(--wh);line-height:1.75;margin-bottom:16px">{summary}</p>
+            <div class="card-foot"><span class="src">{domain}</span><a class="read-btn" href="{link}" target="_blank" rel="noopener">읽기</a></div>
+          </div>"""
+
+        content_order = f"{deco_side}{text_side}" if side == "reverse" else f"{text_side}{deco_side}"
+
+        all_cards_html += f"""
+        <article class="card card-zz" style="background:{tint};box-shadow:{glow} 0px 0px 0px 1px inset,rgba(255,255,255,0.06) 0px 1px 0px inset,rgba(0,0,0,0.38) 0px 16px 36px;flex-direction:{'row-reverse' if side == 'reverse' else 'row'}">
+          {content_order}
         </article>"""
 
     return f"""<!DOCTYPE html>
@@ -503,24 +523,93 @@ def generate_html(selected_by_cat: dict, summaries: dict, interests: list) -> st
       color:var(--ghost);box-shadow:rgba(102,58,243,0.25) 0px 0px 16px 0px;
     }}
 
-    /* ── 히어로 카드 (1위) ── */
-    .card-hero{{border-radius:24px;margin-bottom:1.25rem}}
-    .card-hero .card-inner{{padding:40px}}
-    .card-hero .card-title{{font-family:var(--fd);font-size:clamp(1.3rem,3vw,1.9rem);font-weight:600;color:var(--ghost);line-height:1.25;letter-spacing:-0.02em}}
-    .card-hero .card-summary{{font-size:15px;line-height:1.75}}
-    .card-hero .badge{{font-size:11px;padding:4px 12px}}
-    .card-hero .card-rank{{font-size:13px}}
+    /* ── 히어로 풀너비 카드 ── */
+    .card-hero-full{{
+      border-radius:24px;
+      display:flex;
+      align-items:center;
+      gap:0;
+      margin-bottom:3rem;
+      overflow:hidden;
+      min-height:260px;
+    }}
+    .hero-num{{
+      font-family:var(--fd);
+      font-size:clamp(5rem,12vw,9rem);
+      font-weight:700;
+      color:rgba(255,255,255,0.06);
+      letter-spacing:-0.04em;
+      line-height:1;
+      padding:3rem 2.5rem;
+      flex-shrink:0;
+      user-select:none;
+      min-width:180px;
+      text-align:center;
+      border-right:1px solid var(--border);
+    }}
+    .hero-body{{
+      flex:1;
+      padding:3rem;
+    }}
 
-    /* ── 피처 카드 (2~3위) ── */
-    .feature-row{{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}}
-    .card-feature .card-title{{font-family:var(--fd);font-size:1.05rem;font-weight:600;color:var(--comet);line-height:1.35;letter-spacing:-0.01em}}
-    .card-feature .card-summary{{font-size:13.5px}}
+    /* ── 지그재그 카드 ── */
+    .card-zz{{
+      display:flex;
+      align-items:stretch;
+      border-radius:20px;
+      margin-bottom:1.5rem;
+      min-height:180px;
+      overflow:hidden;
+    }}
+    .zz-deco{{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      padding:2rem 2.5rem;
+      min-width:200px;
+      max-width:240px;
+      flex-shrink:0;
+      border-right:1px solid var(--border);
+      position:relative;
+      overflow:hidden;
+    }}
+    .card-zz[style*="row-reverse"] .zz-deco{{
+      border-right:none;
+      border-left:1px solid var(--border);
+    }}
+    .zz-num{{
+      font-family:var(--fd);
+      font-size:clamp(3rem,6vw,5rem);
+      font-weight:700;
+      color:rgba(255,255,255,0.07);
+      letter-spacing:-0.04em;
+      line-height:1;
+      user-select:none;
+    }}
+    .dot-grid{{
+      position:absolute;
+      inset:0;
+      background-image:radial-gradient(circle, rgba(186,215,247,0.15) 1px, transparent 1px);
+      background-size:18px 18px;
+      pointer-events:none;
+      mask-image:radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%);
+    }}
+    .zz-text{{
+      flex:1;
+      padding:2rem 2.5rem;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+    }}
+    .zz-text h3 a, .hero-body h2 a{{
+      color:inherit;
+      text-decoration:none;
+      transition:opacity 0.2s;
+    }}
+    .zz-text h3 a:hover, .hero-body h2 a:hover{{opacity:0.75}}
 
-    /* ── 그리드 카드 (4위~) ── */
-    .card-grid-wrap{{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1.25rem}}
-    .card-grid-item .card-title{{font-size:14px;font-weight:600;color:var(--comet);line-height:1.45;letter-spacing:-0.01px}}
-    .card-grid-item .card-summary{{font-size:13px}}
-    .card-grid-item .card-inner{{padding:22px;gap:10px}}
+    /* ── 카드 공통 ── */
 
     /* ── 구분선 ── */
     .divider{{
@@ -578,9 +667,7 @@ def generate_html(selected_by_cat: dict, summaries: dict, interests: list) -> st
   </div>
 
   <div class="content" id="content">
-    {hero_html}
-    <div class="feature-row">{feature_html}</div>
-    <div class="card-grid-wrap">{grid_html}</div>
+    {all_cards_html}
   </div>
 
   <div class="divider">
@@ -691,7 +778,7 @@ if __name__ == "__main__":
 
     # 2. 글로벌 랭킹
     print(f"\n  🧠 글로벌 랭킹 중... (동적 선별)")
-    selected_by_cat = global_rank_and_select(articles_by_cat)
+    selected_by_cat, ranked_flat = global_rank_and_select(articles_by_cat)
     total_selected  = sum(len(v) for v in selected_by_cat.values())
     print(f"  🎯 총 {total_selected}개 선별 완료")
     for cat, arts in selected_by_cat.items():
@@ -708,7 +795,7 @@ if __name__ == "__main__":
 
     # 4. HTML 생성 & 저장
     print(f"\n  📄 리포트 생성 중...")
-    html_content = generate_html(selected_by_cat, summaries, interests)
+    html_content = generate_html(selected_by_cat, summaries, interests, ranked_flat)
     report_path  = save_html(html_content)
     report_url   = f"{PAGES_BASE}/{TODAY}.html" if PAGES_BASE else f"(로컬: {report_path})"
     print(f"  ✅ 저장 완료: {report_path}")

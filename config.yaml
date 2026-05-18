@@ -1,31 +1,133 @@
-# 글로벌 세팅 (용량 대폭 확대)
+# ============================================================
+# NoScroll 설정 파일
+# 키워드는 최대한 넓게 → 코드가 LLM으로 상위 top_k개 자동 선별
+# ============================================================
+
 language: "en"
 region: "US"
-articles_per_interest: 5  # <--- 분야별 2개에서 5개로 확장! (총 20개 뉴스)
+articles_per_interest: 15
+top_k: 10
 
 interests:
+
   - name: "🔥 Global AI, LLM & Trend"
-    keywords: "LLM benchmark OR OpenAI OR Anthropic OR DeepMind"
     emoji: "🤖"
+    keywords: >
+      OpenAI OR Anthropic OR DeepMind OR Google Gemini OR Meta AI OR Mistral OR
+      xAI OR Grok OR Claude OR ChatGPT OR GPT-5 OR Gemini OR LLaMA OR Qwen OR
+      LLM OR large language model OR foundation model OR multimodal model OR
+      reasoning model OR AI agent OR agentic AI OR chain of thought OR
+      AI benchmark OR MMLU OR ARC-AGI OR SWE-bench OR HumanEval OR GPQA OR
+      AI lab OR AI safety OR AI alignment OR superintelligence OR AGI OR ASI OR
+      context window OR fine-tuning OR RLHF OR DPO OR
+      AI regulation OR EU AI Act OR AI policy OR Sam Altman OR Demis Hassabis OR
+      Dario Amodei OR Yann LeCun OR model release OR AI launch
     custom_rss:
-      - "https://hnrss.org/newest?q=LLM+OR+OpenAI"
+      # 개발자 커뮤니티
+      - "https://hnrss.org/newest?q=LLM+OR+OpenAI+OR+Anthropic&points=50"  # HN 50점 이상만
       - "https://www.reddit.com/r/LocalLLaMA/top/.rss?t=day"
-      - "https://www.reddit.com/r/Singularity/top/.rss?t=day" # 트위터급 정보 속도
-      
+      - "https://www.reddit.com/r/Singularity/top/.rss?t=day"
+      - "https://www.reddit.com/r/artificial/top/.rss?t=day"
+      - "https://www.reddit.com/r/MachineLearning/top/.rss?t=day"
+      # 테크 미디어
+      - "https://techcrunch.com/category/artificial-intelligence/feed/"
+      - "https://www.theverge.com/ai-artificial-intelligence/rss/index.xml"
+      - "https://feeds.arstechnica.com/arstechnica/index"
+      - "https://www.wired.com/feed/tag/ai/latest/rss"
+      - "https://www.technologyreview.com/feed/"          # MIT Tech Review
+      # AI 전문 미디어
+      - "https://venturebeat.com/category/ai/feed/"
+      - "https://bdtechtalks.com/feed/"
+      - "https://thesequence.substack.com/feed"           # AI 뉴스레터
+      # 공식 블로그
+      - "https://openai.com/news/rss/"
+      - "https://www.anthropic.com/rss.xml"
+      - "https://deepmind.google/blog/rss.xml"
+      - "https://ai.googleblog.com/feeds/posts/default"
+
   - name: "⚡ AI Hardware & Infra"
-    keywords: "AI hardware OR Cerebras OR Nvidia GPU OR TPU"
     emoji: "🔬"
+    keywords: >
+      Nvidia OR AMD OR Intel OR TSMC OR Samsung OR ASML OR
+      GPU OR NPU OR TPU OR AI chip OR AI accelerator OR
+      H100 OR H200 OR B200 OR Blackwell OR Hopper OR Rubin OR
+      Cerebras OR Groq OR Tenstorrent OR SambaNova OR Graphcore OR
+      AWS Trainium OR Google TPU OR Apple Silicon OR
+      data center OR AI infrastructure OR HBM OR CoWoS OR
+      semiconductor OR chip OR fab OR foundry OR
+      CUDA OR ROCm OR inference speed OR token per second OR
+      power consumption OR energy efficiency OR liquid cooling OR
+      CoreWeave OR Lambda Labs OR Together AI OR
+      InfiniBand OR NVLink OR interconnect
     custom_rss:
-      - "https://hnrss.org/newest?q=GPU+OR+Cerebras+OR+Nvidia"
-      
+      # 개발자 커뮤니티
+      - "https://hnrss.org/newest?q=GPU+OR+Nvidia+OR+Cerebras+OR+chip&points=30"
+      - "https://www.reddit.com/r/hardware/top/.rss?t=day"
+      - "https://www.reddit.com/r/NVIDIA/top/.rss?t=day"
+      - "https://www.reddit.com/r/sysadmin/top/.rss?t=day"
+      # 테크 미디어
+      - "https://feeds.arstechnica.com/arstechnica/index"
+      - "https://www.anandtech.com/rss/"                  # 하드웨어 전문
+      - "https://semianalysis.com/feed"                   # 반도체 심층분석
+      - "https://www.tomshardware.com/feeds/all"
+      - "https://www.servethehome.com/feed/"              # 서버/인프라 전문
+      # 산업 분석
+      - "https://venturebeat.com/category/ai/feed/"
+      - "https://www.nextplatform.com/feed/"              # HPC/데이터센터 전문
+
   - name: "🛡️ AI Security & Jailbreak"
-    keywords: "AI cyber security OR prompt injection OR jailbreak"
     emoji: "🛡️"
+    keywords: >
+      AI jailbreak OR prompt injection OR adversarial attack OR
+      AI safety OR AI alignment OR red teaming OR model robustness OR
+      AI vulnerability OR AI exploit OR AI risk OR
+      deepfake OR synthetic media OR AI disinformation OR
+      data poisoning OR training attack OR backdoor attack OR
+      LLM security OR AI misuse OR AI abuse OR
+      AI censorship OR content moderation OR guardrails OR
+      cybersecurity AI OR AI in hacking OR AI malware OR
+      social engineering AI OR AI phishing OR
+      model inversion OR membership inference OR privacy attack OR
+      AI ethics violation OR bias OR hallucination exploit
     custom_rss:
-      - "https://hnrss.org/newest?q=AI+Security+OR+Jailbreak"
+      # 보안 커뮤니티
+      - "https://hnrss.org/newest?q=AI+security+OR+jailbreak+OR+prompt+injection&points=20"
+      - "https://www.reddit.com/r/netsec/top/.rss?t=day"
+      - "https://www.reddit.com/r/cybersecurity/top/.rss?t=day"
+      - "https://www.reddit.com/r/AIsecurity/top/.rss?t=day"
+      # 보안 미디어
+      - "https://krebsonsecurity.com/feed/"
+      - "https://www.schneier.com/feed/atom/"             # Bruce Schneier 보안 블로그
+      - "https://feeds.feedburner.com/TheHackersNews"
+      - "https://www.darkreading.com/rss.xml"
+      - "https://www.bleepingcomputer.com/feed/"
+      # AI 안전성 전문
+      - "https://www.alignmentforum.org/feed.xml"         # AI alignment 연구
+      - "https://aisnakeoil.substack.com/feed"            # AI 과대광고 비판
 
   - name: "🌐 Silicon Valley Tech Aggregator"
-    keywords: "AI startup OR tech funding"
     emoji: "🇺🇸"
+    keywords: >
+      AI startup OR AI funding OR AI investment OR venture capital AI OR
+      Series A OR Series B OR unicorn OR valuation OR IPO OR
+      Y Combinator OR a16z OR Sequoia OR Khosla OR Coatue OR
+      tech acquisition OR merger OR product launch OR
+      developer tool OR coding assistant OR AI productivity OR
+      enterprise AI OR B2B AI OR AI automation OR
+      layoffs OR hiring OR AI job OR
+      Apple OR Google OR Microsoft OR Amazon OR Meta OR Tesla OR
+      Elon Musk OR Tim Cook OR Sundar Pichai OR Satya Nadella
     custom_rss:
-      - "https://www.techmeme.com/feed.xml" # 실리콘밸리 필수 테크 정보 집약체
+      # 산업 집약
+      - "https://www.techmeme.com/feed.xml"               # 실리콘밸리 필수
+      - "https://hnrss.org/newest?q=startup+OR+funding+OR+AI&points=50"
+      - "https://www.reddit.com/r/startups/top/.rss?t=day"
+      - "https://www.reddit.com/r/technology/top/.rss?t=day"
+      # 테크 미디어
+      - "https://techcrunch.com/feed/"
+      - "https://www.theverge.com/rss/index.xml"
+      - "https://feeds.bloomberg.com/technology/news.rss" # Bloomberg Tech
+      - "https://www.businessinsider.com/tech.rss"
+      # 투자/비즈니스
+      - "https://news.crunchbase.com/feed/"               # 스타트업 펀딩 전문
+      - "https://strictly-vc.com/feed/"

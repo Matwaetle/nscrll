@@ -227,16 +227,16 @@ def generate_html(selected_by_cat: dict, summaries: dict, interests: list, ranke
     active_cats   = sum(1 for v in selected_by_cat.values() if v)
     total_sources = sum(len(i.get("custom_rss", [])) + 1 for i in interests)
 
-    # 색상: 스크롤 내릴수록 보라→파랑→청록→틸
+    # 색상: 보라→파랑→초록→노랑→주황으로 극적 변화
     COLOR_STOPS = [
-        ("rgba(102,58,243,0.28)", "rgba(102,58,243,0.07)"),
-        ("rgba(80,100,240,0.24)", "rgba(80,100,240,0.06)"),
-        ("rgba(50,130,230,0.22)", "rgba(50,130,230,0.05)"),
-        ("rgba(30,150,210,0.20)", "rgba(30,150,210,0.05)"),
-        ("rgba(20,160,190,0.18)", "rgba(20,160,190,0.04)"),
-        ("rgba(15,165,170,0.17)", "rgba(15,165,170,0.04)"),
-        ("rgba(10,160,150,0.16)", "rgba(10,160,150,0.04)"),
-        ("rgba(15,150,130,0.14)", "rgba(15,150,130,0.03)"),
+        ("rgba(102,58,243,0.35)", "rgba(102,58,243,0.10)"),   # 1: 보라
+        ("rgba(60,90,240,0.30)",  "rgba(60,90,240,0.08)"),    # 2: 파랑-보라
+        ("rgba(20,140,220,0.28)", "rgba(20,140,220,0.07)"),   # 3: 파랑
+        ("rgba(10,170,120,0.28)", "rgba(10,170,120,0.07)"),   # 4: 청록
+        ("rgba(20,180,80,0.28)",  "rgba(20,180,80,0.07)"),    # 5: 초록
+        ("rgba(120,190,30,0.28)", "rgba(120,190,30,0.07)"),   # 6: 연두
+        ("rgba(210,150,10,0.28)", "rgba(210,150,10,0.07)"),   # 7: 노랑-주황
+        ("rgba(230,100,20,0.28)", "rgba(230,100,20,0.07)"),   # 8+: 주황
     ]
 
     # 크기: 2위부터 완만하게 줄어듦
@@ -380,26 +380,38 @@ def generate_html(selected_by_cat: dict, summaries: dict, interests: list, ranke
     .orb-1{{
       width:700px;height:700px;
       top:-200px;left:-100px;
-      background:radial-gradient(circle,rgba(102,58,243,0.7),transparent 70%);
+      background:radial-gradient(circle,rgba(102,58,243,0.75),transparent 70%);
       animation-delay:0s;animation-duration:22s;
     }}
     .orb-2{{
       width:500px;height:500px;
-      top:10%;right:-100px;
-      background:radial-gradient(circle,rgba(30,120,220,0.5),transparent 70%);
+      top:8%;right:-80px;
+      background:radial-gradient(circle,rgba(50,110,240,0.55),transparent 70%);
       animation-delay:-7s;animation-duration:18s;
     }}
     .orb-3{{
-      width:600px;height:600px;
-      bottom:-150px;left:30%;
-      background:radial-gradient(circle,rgba(80,40,180,0.4),transparent 70%);
+      width:580px;height:580px;
+      top:35%;left:-80px;
+      background:radial-gradient(circle,rgba(20,180,100,0.5),transparent 70%);
       animation-delay:-12s;animation-duration:25s;
     }}
     .orb-4{{
-      width:350px;height:350px;
-      bottom:20%;right:15%;
-      background:radial-gradient(circle,rgba(0,180,200,0.25),transparent 70%);
-      animation-delay:-5s;animation-duration:15s;
+      width:500px;height:500px;
+      top:45%;right:-60px;
+      background:radial-gradient(circle,rgba(80,200,80,0.45),transparent 70%);
+      animation-delay:-5s;animation-duration:20s;
+    }}
+    .orb-5{{
+      width:600px;height:600px;
+      top:70%;left:10%;
+      background:radial-gradient(circle,rgba(240,140,20,0.5),transparent 70%);
+      animation-delay:-9s;animation-duration:23s;
+    }}
+    .orb-6{{
+      width:450px;height:450px;
+      top:82%;right:5%;
+      background:radial-gradient(circle,rgba(220,80,40,0.4),transparent 70%);
+      animation-delay:-3s;animation-duration:17s;
     }}
     @keyframes drift{{
       0%{{transform:translate(0,0) scale(1)}}
@@ -656,6 +668,8 @@ def generate_html(selected_by_cat: dict, summaries: dict, interests: list, ranke
   <div class="orb orb-2"></div>
   <div class="orb orb-3"></div>
   <div class="orb orb-4"></div>
+  <div class="orb orb-5"></div>
+  <div class="orb orb-6"></div>
 </div>
 
 <div class="wrap">
@@ -819,4 +833,6 @@ if __name__ == "__main__":
         f"오늘의 하이라이트:\n{highlights}\n\n"
         f"풀 리포트: {report_url}"
     )
+    print("  ⏳ 2분 대기 후 전송...")
+    time.sleep(120)
     send_message(chat_id, telegram_msg)

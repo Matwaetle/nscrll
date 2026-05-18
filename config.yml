@@ -1,0 +1,26 @@
+# NoScroll 관심사 설정 파일
+# 키워드만 바꾸면 뉴스 소스가 자동으로 바뀜. 코드는 건드릴 필요 없어.
+
+interests:
+  - name: "AI / LLM"
+    keywords: "LLM AI model benchmark"
+    emoji: "🤖"
+
+  - name: "AI 반도체"
+    keywords: "AI chip semiconductor GPU"
+    emoji: "🔬"
+
+  - name: "사이버보안"
+    keywords: "cybersecurity hacking vulnerability"
+    emoji: "🛡️"
+
+  - name: "스타트업 / 투자"
+    keywords: "AI startup funding investment"
+    emoji: "💰"
+
+# 분야당 가져올 기사 수
+articles_per_interest: 2
+
+# 언어 및 지역 설정 (ko/en, KR/US 등)
+language: "ko"
+region: "KR"

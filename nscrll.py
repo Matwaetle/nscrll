@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import urllib.parse
 import feedparser
@@ -29,10 +30,39 @@ def build_google_news_url(keywords: str, lang: str, region: str) -> str:
     encoded = urllib.parse.quote(keywords)
     return f"https://news.google.com/rss/search?q={encoded}&hl={lang}&gl={region}&ceid={region}:{lang}"
 
-def fetch_news(keywords: str, lang: str, region: str, limit: int) -> list:
+def strip_html(text: str) -> str:
+    """HTML 태그 제거"""
+    return re.sub(r'<[^>]+>', '', text).strip()
+
+def resolve_google_news_url(google_url: str) -> str:
+    """Google News 리다이렉트 URL → 실제 기사 URL 추출"""
+    try:
+        res = requests.get(google_url, allow_redirects=True, timeout=5)
+        return res.url
+    except Exception:
+        return google_url  # 실패하면 원본 반환
+
+def fetch_news(keywords: str, lang: str, region: str, limit: int, seen_urls: set) -> list:
     url = build_google_news_url(keywords, lang, region)
     feed = feedparser.parse(url)
-    return feed.entries[:limit]
+
+    results = []
+    for entry in feed.entries:
+        if len(results) >= limit:
+            break
+
+        title   = strip_html(entry.get('title', ''))
+        summary = strip_html(entry.get('summary', ''))
+        link    = resolve_google_news_url(entry.get('link', ''))
+
+        # 중복 제거
+        if link in seen_urls:
+            continue
+        seen_urls.add(link)
+
+        results.append({'title': title, 'summary': summary, 'link': link})
+
+    return results
 
 
 # ───────────────────────────────────────────
@@ -109,6 +139,7 @@ if __name__ == "__main__":
 
     # 3. 분야별 뉴스 수집 & 요약
     final_message = "🤖 NoScroll 오늘의 뉴스 브리핑 🤖\n\n"
+    seen_urls = set()  # 전체 분야 걸쳐 중복 URL 추적
 
     for interest in interests:
         name     = interest["name"]
@@ -116,7 +147,7 @@ if __name__ == "__main__":
         emoji    = interest.get("emoji", "📰")
 
         print(f"  📡 [{name}] 뉴스 수집 중...")
-        articles = fetch_news(keywords, lang, region, limit)
+        articles = fetch_news(keywords, lang, region, limit, seen_urls)
 
         if not articles:
             print(f"  ⚠️  [{name}] 기사 없음, 스킵")

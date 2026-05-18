@@ -239,23 +239,32 @@ def generate_html(selected_by_cat: dict, summaries: dict, interests: list, ranke
         ("rgba(15,150,130,0.14)", "rgba(15,150,130,0.03)"),
     ]
 
-    # 크기: rank 내려갈수록 축소
+    # 크기: 2위부터 완만하게 줄어듦
     SIZE_STEPS = [
-        ("2rem",   "15px", "600"),   # 1위 히어로
-        ("1.15rem","14px", "600"),   # 2위
-        ("1.08rem","14px", "600"),   # 3위
-        ("1.02rem","13.5px","600"),  # 4위
-        ("0.97rem","13px", "500"),   # 5위
-        ("0.93rem","13px", "500"),   # 6위
-        ("0.90rem","12.5px","500"),  # 7위
-        ("0.87rem","12.5px","500"),  # 8위+
+        ("2rem",    "15px",   "600"),  # 1위 히어로
+        ("1.35rem", "15px",   "600"),  # 2위
+        ("1.26rem", "14.5px", "600"),  # 3위
+        ("1.18rem", "14px",   "600"),  # 4위
+        ("1.12rem", "14px",   "600"),  # 5위
+        ("1.06rem", "13.5px", "600"),  # 6위
+        ("1.01rem", "13px",   "500"),  # 7위
+        ("0.97rem", "13px",   "500"),  # 8위+
     ]
+
+    # 데코 패널 너비: 카드마다 약간씩 달라서 리듬감 줌
+    DECO_WIDTHS = [220, 200, 240, 190, 230, 210, 200, 220]
 
     def get_color(idx):
         return COLOR_STOPS[min(idx, len(COLOR_STOPS)-1)]
 
     def get_size(idx):
         return SIZE_STEPS[min(idx, len(SIZE_STEPS)-1)]
+
+    def get_deco_w(idx):
+        return DECO_WIDTHS[idx % len(DECO_WIDTHS)]
+
+    # 카드마다 약간 다른 border-radius로 딱딱함 없애기
+    RADII = [20, 22, 18, 24, 20, 18, 22, 20]
 
     # ── 히어로 카드 (1위 풀너비)
     all_cards_html = ""
@@ -280,7 +289,9 @@ def generate_html(selected_by_cat: dict, summaries: dict, interests: list, ranke
           </div>
         </article>"""
 
-    # ── 2위~: 지그재그 교차 레이아웃
+    # ── 2위~: 지그재그
+    # fix: 항상 HTML 순서는 [text, deco]로 고정하고
+    # flex-direction으로만 방향 제어 → row=텍스트 왼쪽, row-reverse=텍스트 오른쪽
     for i, a in enumerate(flat[1:], 1):
         link    = a.get("link","#")
         title   = a.get("title","")
@@ -289,29 +300,28 @@ def generate_html(selected_by_cat: dict, summaries: dict, interests: list, ranke
         num     = f"0{i+1}" if i+1 < 10 else str(i+1)
         glow, tint = get_color(i)
         tsz, ssz, tw = get_size(i)
-        side    = "normal" if i % 2 == 1 else "reverse"  # 홀수=텍스트 왼쪽, 짝수=텍스트 오른쪽
+        dw      = get_deco_w(i)
+        radius  = RADII[i % len(RADII)]
 
-        deco_side = f"""
-          <div class="zz-deco">
-            <div class="zz-num">{num}</div>
-            <span class="badge" style="margin-top:12px">{a["cat"]}</span>
-            <div class="dot-grid"></div>
-          </div>"""
+        # 홀수 i → row (텍스트 왼쪽), 짝수 i → row-reverse (텍스트 오른쪽)
+        flex_dir     = "row" if i % 2 == 1 else "row-reverse"
+        # deco 테두리: row일 때 deco가 오른쪽이므로 border-left, row-reverse면 border-right
+        deco_border  = "border-left:1px solid var(--border);border-right:none" if i % 2 == 1 else "border-right:1px solid var(--border);border-left:none"
 
-        text_side = f"""
+        all_cards_html += f"""
+        <article class="card card-zz" style="flex-direction:{flex_dir};background:{tint};border-radius:{radius}px;box-shadow:{glow} 0px 0px 0px 1px inset,rgba(255,255,255,0.06) 0px 1px 0px inset,rgba(0,0,0,0.38) 0px 16px 36px">
           <div class="zz-text">
             <h3 style="font-size:{tsz};font-weight:{tw};color:#d8ecf8;line-height:1.35;letter-spacing:-0.015em;margin-bottom:12px">
               <a href="{link}" target="_blank" rel="noopener">{title}</a>
             </h3>
             <p style="font-size:{ssz};color:var(--wh);line-height:1.75;margin-bottom:16px">{summary}</p>
             <div class="card-foot"><span class="src">{domain}</span><a class="read-btn" href="{link}" target="_blank" rel="noopener">읽기</a></div>
-          </div>"""
-
-        content_order = f"{deco_side}{text_side}" if side == "reverse" else f"{text_side}{deco_side}"
-
-        all_cards_html += f"""
-        <article class="card card-zz" style="background:{tint};box-shadow:{glow} 0px 0px 0px 1px inset,rgba(255,255,255,0.06) 0px 1px 0px inset,rgba(0,0,0,0.38) 0px 16px 36px;flex-direction:{'row-reverse' if side == 'reverse' else 'row'}">
-          {content_order}
+          </div>
+          <div class="zz-deco" style="min-width:{dw}px;max-width:{dw}px;{deco_border}">
+            <div class="dot-grid"></div>
+            <div class="zz-num">{num}</div>
+            <span class="badge" style="margin-top:10px;position:relative;z-index:1">{a["cat"]}</span>
+          </div>
         </article>"""
 
     return f"""<!DOCTYPE html>

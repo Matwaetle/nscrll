@@ -864,6 +864,4 @@ if __name__ == "__main__":
         f"오늘의 하이라이트:\n{highlights}\n\n"
         f"풀 리포트: {report_url}"
     )
-    print("  ⏳ 4분 대기 후 전송...")
-    time.sleep(240)
     send_message(chat_id, telegram_msg)

@@ -63,7 +63,7 @@ def summarize_news_with_llm(news_item):
     """
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-pro',
+            model='gemini-3.1-pro',
             contents=prompt,
         )
         return response.text.strip()

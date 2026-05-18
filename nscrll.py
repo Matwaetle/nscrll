@@ -227,17 +227,7 @@ def generate_html(selected_by_cat: dict, summaries: dict, interests: list, ranke
     active_cats   = sum(1 for v in selected_by_cat.values() if v)
     total_sources = sum(len(i.get("custom_rss", [])) + 1 for i in interests)
 
-    # 색상: 보라→파랑→초록→노랑→주황으로 극적 변화
-    COLOR_STOPS = [
-        ("rgba(102,58,243,0.35)", "rgba(102,58,243,0.10)"),   # 1: 보라
-        ("rgba(60,90,240,0.30)",  "rgba(60,90,240,0.08)"),    # 2: 파랑-보라
-        ("rgba(20,140,220,0.28)", "rgba(20,140,220,0.07)"),   # 3: 파랑
-        ("rgba(10,170,120,0.28)", "rgba(10,170,120,0.07)"),   # 4: 청록
-        ("rgba(20,180,80,0.28)",  "rgba(20,180,80,0.07)"),    # 5: 초록
-        ("rgba(120,190,30,0.28)", "rgba(120,190,30,0.07)"),   # 6: 연두
-        ("rgba(210,150,10,0.28)", "rgba(210,150,10,0.07)"),   # 7: 노랑-주황
-        ("rgba(230,100,20,0.28)", "rgba(230,100,20,0.07)"),   # 8+: 주황
-    ]
+    # 카드는 순수 유리 — 배경 orb가 움직이며 색 변화
 
     # 크기: 2위부터 완만하게 줄어듦
     SIZE_STEPS = [
@@ -253,9 +243,6 @@ def generate_html(selected_by_cat: dict, summaries: dict, interests: list, ranke
 
     # 데코 패널 너비: 카드마다 약간씩 달라서 리듬감 줌
     DECO_WIDTHS = [220, 200, 240, 190, 230, 210, 200, 220]
-
-    def get_color(idx):
-        return COLOR_STOPS[min(idx, len(COLOR_STOPS)-1)]
 
     def get_size(idx):
         return SIZE_STEPS[min(idx, len(SIZE_STEPS)-1)]
@@ -274,10 +261,9 @@ def generate_html(selected_by_cat: dict, summaries: dict, interests: list, ranke
         title   = a.get("title","")
         summary = summaries.get(link,"").replace("\n","<br>")
         domain  = link.split("/")[2] if "/" in link else link
-        glow, tint = get_color(0)
         tsz, ssz, tw = get_size(0)
         all_cards_html += f"""
-        <article class="card card-hero-full" style="background:{tint};box-shadow:{glow} 0px 0px 0px 1px inset,rgba(255,255,255,0.07) 0px 1px 0px inset,rgba(0,0,0,0.45) 0px 24px 48px">
+        <article class="card card-hero-full">
           <div class="hero-num">01</div>
           <div class="hero-body">
             <span class="badge">{a["cat"]}</span>
@@ -298,7 +284,6 @@ def generate_html(selected_by_cat: dict, summaries: dict, interests: list, ranke
         summary = summaries.get(link,"").replace("\n","<br>")
         domain  = link.split("/")[2] if "/" in link else link
         num     = f"0{i+1}" if i+1 < 10 else str(i+1)
-        glow, tint = get_color(i)
         tsz, ssz, tw = get_size(i)
         dw      = get_deco_w(i)
         radius  = RADII[i % len(RADII)]
@@ -309,7 +294,7 @@ def generate_html(selected_by_cat: dict, summaries: dict, interests: list, ranke
         deco_border  = "border-left:1px solid var(--border);border-right:none" if i % 2 == 1 else "border-right:1px solid var(--border);border-left:none"
 
         all_cards_html += f"""
-        <article class="card card-zz" style="flex-direction:{flex_dir};background:{tint};border-radius:{radius}px;box-shadow:{glow} 0px 0px 0px 1px inset,rgba(255,255,255,0.06) 0px 1px 0px inset,rgba(0,0,0,0.38) 0px 16px 36px">
+        <article class="card card-zz" style="flex-direction:{flex_dir};border-radius:{radius}px">
           <div class="zz-text">
             <h3 style="font-size:{tsz};font-weight:{tw};color:#d8ecf8;line-height:1.35;letter-spacing:-0.015em;margin-bottom:12px">
               <a href="{link}" target="_blank" rel="noopener">{title}</a>
@@ -377,41 +362,13 @@ def generate_html(selected_by_cat: dict, summaries: dict, interests: list, ranke
       opacity:0.55;
       animation:drift 20s ease-in-out infinite alternate;
     }}
-    .orb-1{{
-      width:700px;height:700px;
-      top:-200px;left:-100px;
-      background:radial-gradient(circle,rgba(102,58,243,0.75),transparent 70%);
-      animation-delay:0s;animation-duration:22s;
-    }}
-    .orb-2{{
-      width:500px;height:500px;
-      top:8%;right:-80px;
-      background:radial-gradient(circle,rgba(50,110,240,0.55),transparent 70%);
-      animation-delay:-7s;animation-duration:18s;
-    }}
-    .orb-3{{
-      width:580px;height:580px;
-      top:35%;left:-80px;
-      background:radial-gradient(circle,rgba(20,180,100,0.5),transparent 70%);
-      animation-delay:-12s;animation-duration:25s;
-    }}
-    .orb-4{{
-      width:500px;height:500px;
-      top:45%;right:-60px;
-      background:radial-gradient(circle,rgba(80,200,80,0.45),transparent 70%);
-      animation-delay:-5s;animation-duration:20s;
-    }}
-    .orb-5{{
-      width:600px;height:600px;
-      top:70%;left:10%;
-      background:radial-gradient(circle,rgba(240,140,20,0.5),transparent 70%);
-      animation-delay:-9s;animation-duration:23s;
-    }}
-    .orb-6{{
-      width:450px;height:450px;
-      top:82%;right:5%;
-      background:radial-gradient(circle,rgba(220,80,40,0.4),transparent 70%);
-      animation-delay:-3s;animation-duration:17s;
+    .orb{{
+      position:absolute;
+      border-radius:50%;
+      filter:blur(90px);
+      opacity:0.6;
+      transition:none;
+      will-change:transform;
     }}
     @keyframes drift{{
       0%{{transform:translate(0,0) scale(1)}}
@@ -664,12 +621,86 @@ def generate_html(selected_by_cat: dict, summaries: dict, interests: list, ranke
 <body>
 
 <div class="bg">
-  <div class="orb orb-1"></div>
-  <div class="orb orb-2"></div>
-  <div class="orb orb-3"></div>
-  <div class="orb orb-4"></div>
-  <div class="orb orb-5"></div>
-  <div class="orb orb-6"></div>
+  <canvas id="orb-canvas"></canvas>
+<script>
+(function(){{
+  const canvas = document.getElementById('orb-canvas');
+  const ctx    = canvas.getContext('2d');
+
+  // 뷰포트 고정
+  Object.assign(canvas.style, {{
+    position:'fixed', inset:'0', width:'100%', height:'100%', zIndex:'0', pointerEvents:'none'
+  }});
+
+  // orb 정의: 색상 다양하게
+  const COLORS = [
+    [102, 58, 243],   // 보라
+    [50,  100, 240],  // 파랑
+    [20,  180, 100],  // 초록
+    [220, 140,  20],  // 주황
+    [200,  50, 180],  // 핑크
+    [20,  160, 200],  // 청록
+    [240,  80,  40],  // 빨강-주황
+    [130, 200,  30],  // 연두
+  ];
+
+  const N = 6;
+  const orbs = Array.from({{length: N}}, (_, i) => {{
+    const [r,g,b] = COLORS[i % COLORS.length];
+    const size = 380 + Math.random() * 280;
+    return {{
+      x:  Math.random() * window.innerWidth,
+      y:  Math.random() * window.innerHeight,
+      vx: (Math.random() - 0.5) * 0.6,
+      vy: (Math.random() - 0.5) * 0.6,
+      r, g, b,
+      size,
+      // 각 orb마다 독립적인 위상
+      phase: Math.random() * Math.PI * 2,
+      freq:  0.0003 + Math.random() * 0.0004,
+    }};
+  }});
+
+  function resize() {{
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }}
+  window.addEventListener('resize', resize);
+  resize();
+
+  let t = 0;
+  function draw() {{
+    t++;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    orbs.forEach(o => {{
+      // 부드럽게 랜덤 이동 (perlin-like sinusoidal drift)
+      o.x += o.vx + Math.sin(t * o.freq + o.phase) * 1.2;
+      o.y += o.vy + Math.cos(t * o.freq * 0.7 + o.phase) * 1.0;
+
+      // 경계 반사
+      if (o.x < -o.size/2) o.x = canvas.width + o.size/2;
+      if (o.x > canvas.width  + o.size/2) o.x = -o.size/2;
+      if (o.y < -o.size/2) o.y = canvas.height + o.size/2;
+      if (o.y > canvas.height + o.size/2) o.y = -o.size/2;
+
+      // 그리기
+      const grad = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, o.size/2);
+      grad.addColorStop(0,   `rgba(${{o.r}},${{o.g}},${{o.b}},0.55)`);
+      grad.addColorStop(0.5, `rgba(${{o.r}},${{o.g}},${{o.b}},0.20)`);
+      grad.addColorStop(1,   `rgba(${{o.r}},${{o.g}},${{o.b}},0)`);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(o.x, o.y, o.size/2, 0, Math.PI*2);
+      ctx.fill();
+    }});
+
+    requestAnimationFrame(draw);
+  }}
+  draw();
+}})();
+</script>
 </div>
 
 <div class="wrap">
@@ -833,6 +864,6 @@ if __name__ == "__main__":
         f"오늘의 하이라이트:\n{highlights}\n\n"
         f"풀 리포트: {report_url}"
     )
-    print("  ⏳ 2분 대기 후 전송...")
-    time.sleep(120)
+    print("  ⏳ 4분 대기 후 전송...")
+    time.sleep(240)
     send_message(chat_id, telegram_msg)

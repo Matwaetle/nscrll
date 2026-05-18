@@ -6,7 +6,7 @@
 language: "en"
 region: "US"
 articles_per_interest: 15
-top_k: 10
+top_k: 4
 
 interests:
 

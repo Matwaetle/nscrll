@@ -1,0 +1,29 @@
+name: NoScroll Daily News
+
+on:
+  schedule:
+    # UTC 기준 작성 (한국 시간 오전 8시 = UTC 오후 11시)
+    - cron: '0 23 * * *'
+  workflow_dispatch: # 수동으로 테스트 실행할 수 있는 버튼
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 코드 불러오기
+        uses: actions/checkout@v3
+
+      - name: 파이썬 환경 세팅
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: 필수 라이브러리 설치
+        run: |
+          pip install google-genai feedparser requests
+
+      - name: 파이썬 스크립트 실행 (텔레그램 전송)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: python nscrll.py

@@ -167,7 +167,9 @@ if __name__ == "__main__":
         emoji    = interest.get("emoji", "📰")
 
         print(f"  📡 [{name}] 뉴스 수집 중...")
-        articles = fetch_news(keywords, lang, region, limit, seen_urls)
+        # [기존 코드] articles = fetch_news(keywords, lang, region, limit, seen_urls)
+        # [수정 코드] 아래처럼 interest 통째로 넘기기
+        articles = fetch_news(interest, lang, region, limit, seen_urls)
 
         if not articles:
             print(f"  ⚠️  [{name}] 기사 없음, 스킵")

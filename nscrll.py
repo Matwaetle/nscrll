@@ -15,13 +15,12 @@ from google import genai
 # ───────────────────────────────────────────
 GEMINI_API_KEY     = os.environ.get("GEMINI_API_KEY")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-GITHUB_REPOSITORY  = os.environ.get("GITHUB_REPOSITORY", "")  # Actions에서 자동 주입
+GITHUB_REPOSITORY  = os.environ.get("GITHUB_REPOSITORY", "")
 
 client = genai.Client(api_key=GEMINI_API_KEY)
-MODEL  = "gemini-3.1-flash-lite-preview"  # 가장 저렴한 모델로 비용 제어
-TODAY  = date.today().isoformat()         # "2026-05-18"
+MODEL  = "gemini-3.1-flash-lite-preview"
+TODAY  = date.today().isoformat()
 
-# GitHub Pages URL 자동 구성
 if GITHUB_REPOSITORY:
     _owner, _repo = GITHUB_REPOSITORY.split("/", 1)
     PAGES_BASE = f"https://{_owner}.github.io/{_repo}"
@@ -43,6 +42,12 @@ def load_config(path="config.yaml"):
 def strip_html(text: str) -> str:
     return re.sub(r'<[^>]+>', '', text).strip()
 
+def strip_emoji(text: str) -> str:
+    return re.sub(
+        r'[\U0001F000-\U0001FFFF\U00002600-\U000027FF\U0000FE00-\U0000FE0F\u200d]',
+        '', text
+    ).strip()
+
 def resolve_google_news_url(url: str) -> str:
     try:
         res = requests.get(url, allow_redirects=True, timeout=5)
@@ -55,7 +60,7 @@ def build_google_news_url(keywords: str, lang: str, region: str) -> str:
 
 
 # ───────────────────────────────────────────
-# 뉴스 수집 - 소스별 골고루
+# 뉴스 수집
 # ───────────────────────────────────────────
 def fetch_from_rss(rss_url: str, per_source: int, seen_urls: set, resolve: bool = False) -> list:
     results = []
@@ -103,13 +108,9 @@ def fetch_news(interest: dict, lang: str, region: str, limit: int, seen_urls: se
 
 
 # ───────────────────────────────────────────
-# 글로벌 랭킹 - 카테고리 경계 없이 동적 분배
+# 글로벌 랭킹 (동적 개수)
 # ───────────────────────────────────────────
 def global_rank_and_select(articles_by_cat: dict) -> dict:
-    """
-    모든 카테고리 기사를 한 번에 LLM에 넘겨서
-    개수도 LLM이 동적으로 결정. 고정 쿼터 없음.
-    """
     flat = []
     for cat_name, articles in articles_by_cat.items():
         for a in articles:
@@ -130,7 +131,7 @@ def global_rank_and_select(articles_by_cat: dict) -> dict:
 오늘 진짜 읽을 가치 있는 기사만 골라줘.
 - 고정 개수 없음. 오늘 이슈가 많으면 많이(최대 20개), 적으면 적게(최소 5개).
 - 카테고리 쿼터 없음. 오늘 핫한 분야가 있으면 거기서 더 뽑아도 됨.
-- 중복되거나 뻔한 분석 기사는 과감히 제외.
+- 중복되거나 뻔한 기사는 과감히 제외.
 
 결과는 인덱스 번호만 JSON 배열로. 다른 말 없이 JSON만.
 예시: [0, 3, 7, 12, 15]
@@ -165,7 +166,7 @@ def global_rank_and_select(articles_by_cat: dict) -> dict:
 # ───────────────────────────────────────────
 def summarize(article: dict) -> str:
     prompt = f"""
-너는 실리콘밸리 딥테크 트렌드에 빠삭하고 까칠한 동료 엔지니어 'NoScroll'이야.
+너는 실리콘밸리 딥테크 트렌드에 빠삭하고 까칠한 동료 엔지니어야.
 다음 영문 뉴스를 개발자 입장에서 핵심 팩트만 한국어로 딱 3줄 요약해.
 
 [규칙]
@@ -184,13 +185,13 @@ def summarize(article: dict) -> str:
 
 
 # ───────────────────────────────────────────
-# 텔레그램 하이라이트 (링크 전송용 3줄)
+# 텔레그램 하이라이트
 # ───────────────────────────────────────────
 def generate_highlights(selected_by_cat: dict) -> str:
     all_titles = []
     for cat, articles in selected_by_cat.items():
         for a in articles:
-            all_titles.append(f"[{cat}] {a['title']}")
+            all_titles.append(f"[{strip_emoji(cat)}] {a['title']}")
 
     if not all_titles:
         return "(하이라이트 없음)"
@@ -209,210 +210,400 @@ def generate_highlights(selected_by_cat: dict) -> str:
 
 
 # ───────────────────────────────────────────
-# HTML 리포트 생성
+# HTML 리포트 생성 (Liquid Glass 디자인)
 # ───────────────────────────────────────────
-def generate_html(selected_by_cat: dict, summaries: dict) -> str:
-    """selected_by_cat: {cat_name: [article, ...]}, summaries: {link: summary_text}"""
-
-    # 목차 HTML
-    toc_items = ""
+def generate_html(selected_by_cat: dict, summaries: dict, interests: list) -> str:
+    # 전체 기사를 중요도 순 플랫 리스트로 (카테고리 태그 포함)
+    flat = []
     for cat, articles in selected_by_cat.items():
-        if not articles:
-            continue
-        anchor = re.sub(r'[^\w]', '-', cat)
-        toc_items += f'<li><a href="#{anchor}">{cat} ({len(articles)})</a></li>\n'
+        for a in articles:
+            flat.append({**a, 'cat': strip_emoji(cat)})
 
-    # 카테고리별 기사 HTML
-    sections_html = ""
-    for cat, articles in selected_by_cat.items():
-        if not articles:
-            continue
-        anchor   = re.sub(r'[^\w]', '-', cat)
-        cards_html = ""
-        for i, a in enumerate(articles, 1):
-            title   = a.get('title', '제목 없음')
-            link    = a.get('link', '#')
-            summary = summaries.get(link, '').replace('\n', '<br>')
-            domain  = link.split('/')[2] if '/' in link else link
-            cards_html += f"""
-            <article class="card">
-              <div class="card-num">{i}</div>
-              <div class="card-body">
-                <h3><a href="{link}" target="_blank" rel="noopener">{title}</a></h3>
-                <p class="summary">{summary}</p>
-                <span class="source">{domain}</span>
-              </div>
-            </article>"""
+    total_count   = len(flat)
+    active_cats   = sum(1 for v in selected_by_cat.values() if v)
+    total_sources = sum(len(i.get("custom_rss", [])) + 1 for i in interests)
 
-        sections_html += f"""
-        <section id="{anchor}">
-          <h2>{cat}</h2>
-          {cards_html}
-        </section>"""
+    def card_badge(cat):
+        return f'<span class="badge">{cat}</span>'
 
-    total_count = sum(len(v) for v in selected_by_cat.values())
+    def card_source(domain):
+        return f'<span class="src">{domain}</span>'
+
+    def card_read(link):
+        return f'<a class="read-btn" href="{link}" target="_blank" rel="noopener">읽기</a>'
+
+    # ── 1위: 히어로 카드 (풀 너비)
+    hero_html = ""
+    if flat:
+        a = flat[0]
+        link    = a.get("link", "#")
+        title   = a.get("title", "")
+        summary = summaries.get(link, "").replace("\n", "<br>")
+        domain  = link.split("/")[2] if "/" in link else link
+        hero_html = f"""
+        <article class="card card-hero">
+          <div class="card-inner">
+            <div class="card-meta">
+              {card_badge(a["cat"])}
+              <span class="card-rank">01</span>
+            </div>
+            <h2 class="card-title"><a href="{link}" target="_blank" rel="noopener">{title}</a></h2>
+            <p class="card-summary">{summary}</p>
+            <div class="card-foot">{card_source(domain)}{card_read(link)}</div>
+          </div>
+        </article>"""
+
+    # ── 2~3위: 피처 카드 (2열)
+    feature_html = ""
+    for i, a in enumerate(flat[1:3], 2):
+        link    = a.get("link", "#")
+        title   = a.get("title", "")
+        summary = summaries.get(link, "").replace("\n", "<br>")
+        domain  = link.split("/")[2] if "/" in link else link
+        feature_html += f"""
+        <article class="card card-feature">
+          <div class="card-inner">
+            <div class="card-meta">
+              {card_badge(a["cat"])}
+              <span class="card-rank">0{i}</span>
+            </div>
+            <h3 class="card-title"><a href="{link}" target="_blank" rel="noopener">{title}</a></h3>
+            <p class="card-summary">{summary}</p>
+            <div class="card-foot">{card_source(domain)}{card_read(link)}</div>
+          </div>
+        </article>"""
+
+    # ── 4위~: 그리드 카드 (3열)
+    grid_html = ""
+    for i, a in enumerate(flat[3:], 4):
+        link    = a.get("link", "#")
+        title   = a.get("title", "")
+        summary = summaries.get(link, "").replace("\n", "<br>")
+        domain  = link.split("/")[2] if "/" in link else link
+        num     = f"0{i}" if i < 10 else str(i)
+        grid_html += f"""
+        <article class="card card-grid-item">
+          <div class="card-inner">
+            <div class="card-meta">
+              {card_badge(a["cat"])}
+              <span class="card-rank">{num}</span>
+            </div>
+            <h3 class="card-title"><a href="{link}" target="_blank" rel="noopener">{title}</a></h3>
+            <p class="card-summary">{summary}</p>
+            <div class="card-foot">{card_source(domain)}{card_read(link)}</div>
+          </div>
+        </article>"""
 
     return f"""<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NoScroll — {TODAY}</title>
+  <title>Myrmidon — {TODAY}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
   <style>
-    :root {{
-      --bg: #0f1117;
-      --surface: #1a1d27;
-      --border: #2a2d3a;
-      --accent: #4f8ef7;
-      --text: #e2e8f0;
-      --muted: #8892a4;
-      --green: #34d399;
+    *,*::before,*::after{{box-sizing:border-box;margin:0;padding:0}}
+    :root{{
+      --violet:#663af3;
+      --violet-dim:rgba(102,58,243,0.15);
+      --comet:#d8ecf8;
+      --mist:#d1e4fa;
+      --celestial:#b6d9fc;
+      --azure:#c7d3ea;
+      --whisper:#9da7ba;
+      --ig:#81899b;
+      --slate:#3f4959;
+      --ghost:#fff;
+      --border:rgba(186,215,247,0.14);
+      --glass:rgba(255,255,255,0.04);
+      --glass-strong:rgba(255,255,255,0.07);
+      --fd:'Space Grotesk',system-ui,sans-serif;
+      --fb:'Inter',system-ui,sans-serif;
+      --fm:'IBM Plex Mono',monospace;
     }}
-    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-    body {{
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      line-height: 1.6;
-      padding: 0 1rem 4rem;
-      max-width: 860px;
-      margin: 0 auto;
+
+    html{{scroll-behavior:smooth}}
+
+    /* ── 배경 ── */
+    body{{
+      background:#05060f;
+      color:var(--comet);
+      font-family:var(--fb);
+      font-size:14px;
+      line-height:1.5;
+      min-height:100vh;
+      overflow-x:hidden;
     }}
-    header {{
-      padding: 2.5rem 0 1.5rem;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 2rem;
+    .bg{{
+      position:fixed;
+      inset:0;
+      z-index:0;
+      overflow:hidden;
     }}
-    header h1 {{
-      font-size: 1.6rem;
-      font-weight: 700;
-      color: var(--accent);
-      letter-spacing: -0.5px;
+    .orb{{
+      position:absolute;
+      border-radius:50%;
+      filter:blur(80px);
+      opacity:0.55;
+      animation:drift 20s ease-in-out infinite alternate;
     }}
-    header .meta {{
-      color: var(--muted);
-      font-size: 0.85rem;
-      margin-top: 0.3rem;
+    .orb-1{{
+      width:700px;height:700px;
+      top:-200px;left:-100px;
+      background:radial-gradient(circle,rgba(102,58,243,0.7),transparent 70%);
+      animation-delay:0s;animation-duration:22s;
     }}
-    nav.toc {{
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 1.2rem 1.5rem;
-      margin-bottom: 2.5rem;
+    .orb-2{{
+      width:500px;height:500px;
+      top:10%;right:-100px;
+      background:radial-gradient(circle,rgba(30,120,220,0.5),transparent 70%);
+      animation-delay:-7s;animation-duration:18s;
     }}
-    nav.toc h2 {{
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--muted);
-      margin-bottom: 0.8rem;
+    .orb-3{{
+      width:600px;height:600px;
+      bottom:-150px;left:30%;
+      background:radial-gradient(circle,rgba(80,40,180,0.4),transparent 70%);
+      animation-delay:-12s;animation-duration:25s;
     }}
-    nav.toc ul {{
-      list-style: none;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
+    .orb-4{{
+      width:350px;height:350px;
+      bottom:20%;right:15%;
+      background:radial-gradient(circle,rgba(0,180,200,0.25),transparent 70%);
+      animation-delay:-5s;animation-duration:15s;
     }}
-    nav.toc a {{
-      color: var(--accent);
-      text-decoration: none;
-      font-size: 0.9rem;
-      background: rgba(79,142,247,0.1);
-      padding: 0.25rem 0.75rem;
-      border-radius: 20px;
-      border: 1px solid rgba(79,142,247,0.2);
-      transition: background 0.2s;
+    @keyframes drift{{
+      0%{{transform:translate(0,0) scale(1)}}
+      33%{{transform:translate(60px,-40px) scale(1.05)}}
+      66%{{transform:translate(-30px,60px) scale(0.97)}}
+      100%{{transform:translate(40px,20px) scale(1.03)}}
     }}
-    nav.toc a:hover {{ background: rgba(79,142,247,0.25); }}
-    section {{ margin-bottom: 3rem; }}
-    section h2 {{
-      font-size: 1.1rem;
-      font-weight: 600;
-      padding-bottom: 0.6rem;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 1.2rem;
+
+    /* ── 레이어 ── */
+    .wrap{{position:relative;z-index:1}}
+
+    /* ── 네비 ── */
+    nav{{
+      position:sticky;top:0;z-index:100;
+      background:rgba(5,6,15,0.7);
+      backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+      border-bottom:1px solid var(--border);
+      padding:0 2.5rem;height:56px;
+      display:flex;align-items:center;justify-content:space-between;
     }}
-    .card {{
-      display: flex;
-      gap: 1rem;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 1.2rem;
-      margin-bottom: 0.9rem;
-      transition: border-color 0.2s;
+    .nav-logo{{
+      font-family:var(--fd);font-size:18px;font-weight:600;
+      color:var(--ghost);text-decoration:none;letter-spacing:-0.02em;
     }}
-    .card:hover {{ border-color: var(--accent); }}
-    .card-num {{
-      font-size: 0.75rem;
-      font-weight: 700;
-      color: var(--muted);
-      min-width: 1.5rem;
-      padding-top: 2px;
+    .nav-logo span{{color:var(--violet)}}
+    .nav-date{{font-family:var(--fm);font-size:11px;color:var(--ig);letter-spacing:0.05em}}
+    .nav-cta{{
+      font-family:var(--fb);font-size:13px;font-weight:500;color:var(--ghost);
+      background:var(--violet);border-radius:999px;padding:7px 20px;
+      text-decoration:none;
+      box-shadow:rgba(102,58,243,0.5) 0px 0px 20px 0px;
+      transition:box-shadow 0.2s,transform 0.2s;
     }}
-    .card-body {{ flex: 1; }}
-    .card h3 {{
-      font-size: 0.95rem;
-      font-weight: 600;
-      margin-bottom: 0.5rem;
-      line-height: 1.4;
+    .nav-cta:hover{{box-shadow:rgba(102,58,243,0.8) 0px 0px 30px 0px;transform:translateY(-1px)}}
+
+    /* ── 히어로 ── */
+    .hero{{
+      padding:6rem 2.5rem 5rem;
+      text-align:center;
+      border-bottom:1px solid var(--border);
     }}
-    .card h3 a {{
-      color: var(--text);
-      text-decoration: none;
+    .hero-eyebrow{{
+      display:inline-block;
+      font-family:var(--fm);font-size:10px;color:var(--ig);
+      letter-spacing:0.14em;text-transform:uppercase;
+      border:1px solid var(--border);
+      background:rgba(186,215,247,0.04);
+      backdrop-filter:blur(8px);
+      padding:5px 16px;border-radius:6px;margin-bottom:2rem;
     }}
-    .card h3 a:hover {{ color: var(--accent); }}
-    .summary {{
-      font-size: 0.875rem;
-      color: var(--muted);
-      line-height: 1.65;
-      margin-bottom: 0.5rem;
+    .hero h1{{
+      font-family:var(--fd);
+      font-size:clamp(2.6rem,7vw,4.2rem);
+      font-weight:500;color:var(--ghost);
+      line-height:1.1;letter-spacing:-0.03em;margin-bottom:1.25rem;
     }}
-    .source {{
-      font-size: 0.75rem;
-      color: var(--green);
-      opacity: 0.8;
+    .hero h1 .accent{{
+      background:linear-gradient(120deg,var(--celestial) 0%,var(--violet) 60%);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
     }}
-    footer {{
-      color: var(--muted);
-      font-size: 0.8rem;
-      text-align: center;
-      padding-top: 2rem;
-      border-top: 1px solid var(--border);
+    .hero-sub{{font-size:15px;color:var(--azure);line-height:1.6;max-width:420px;margin:0 auto 3rem}}
+    .stats{{
+      display:inline-flex;
+      border:1px solid var(--border);border-radius:16px;overflow:hidden;
+      background:rgba(255,255,255,0.04);
+      backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+      box-shadow:rgba(255,255,255,0.08) 0px 1px 0px inset,
+                 rgba(102,58,243,0.1) 0px 0px 40px 0px;
+    }}
+    .stat{{padding:1.25rem 2.5rem;text-align:center}}
+    .stat+.stat{{border-left:1px solid var(--border)}}
+    .sn{{font-family:var(--fd);font-size:2rem;font-weight:600;color:var(--ghost);line-height:1;margin-bottom:5px}}
+    .sl{{font-family:var(--fm);font-size:9px;color:var(--ig);letter-spacing:0.1em;text-transform:uppercase}}
+
+    /* ── 콘텐츠 ── */
+    .content{{
+      max-width:1280px;margin:0 auto;
+      padding:3rem 2.5rem 6rem;
+    }}
+
+    /* ── 공통 카드 ── */
+    .card{{
+      background:var(--glass);
+      backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+      border:1px solid var(--border);
+      border-radius:20px;
+      box-shadow:
+        rgba(255,255,255,0.07) 0px 1px 0px inset,
+        rgba(186,215,247,0.04) 0px 0px 60px 0px inset,
+        rgba(0,0,0,0.4) 0px 20px 40px 0px;
+      transition:transform 0.3s cubic-bezier(0.175,0.885,0.32,1.1),
+                 box-shadow 0.3s,border-color 0.3s;
+      overflow:hidden;
+    }}
+    .card:hover{{
+      transform:translateY(-5px) scale(1.005);
+      border-color:rgba(186,215,247,0.28);
+      box-shadow:
+        rgba(255,255,255,0.1) 0px 1px 0px inset,
+        rgba(102,58,243,0.12) 0px 0px 60px 0px inset,
+        rgba(0,0,0,0.6) 0px 30px 60px 0px;
+    }}
+    .card-inner{{padding:28px;height:100%;display:flex;flex-direction:column;gap:14px}}
+    .card-meta{{display:flex;align-items:center;justify-content:space-between}}
+    .badge{{
+      font-family:var(--fm);font-size:10px;color:var(--ig);
+      letter-spacing:0.06em;text-transform:uppercase;
+      border:1px solid var(--border);
+      background:rgba(186,215,247,0.06);
+      padding:3px 10px;border-radius:6px;
+    }}
+    .card-rank{{font-family:var(--fm);font-size:11px;color:var(--slate);letter-spacing:0.08em}}
+    .card-title{{flex:0;}}
+    .card-title a{{color:inherit;text-decoration:none;transition:color 0.2s}}
+    .card-title a:hover{{color:var(--ghost)}}
+    .card-summary{{color:var(--whisper);line-height:1.7;flex:1}}
+    .card-foot{{
+      display:flex;align-items:center;justify-content:space-between;
+      padding-top:14px;border-top:1px solid var(--border);
+      margin-top:auto;
+    }}
+    .src{{font-family:var(--fm);font-size:10px;color:var(--slate);letter-spacing:0.04em}}
+    .read-btn{{
+      font-family:var(--fb);font-size:12px;font-weight:500;color:var(--mist);
+      background:rgba(186,214,247,0.06);border:1px solid var(--border);
+      border-radius:999px;padding:4px 14px;text-decoration:none;
+      transition:all 0.2s;
+    }}
+    .read-btn:hover{{
+      background:rgba(102,58,243,0.2);border-color:rgba(102,58,243,0.5);
+      color:var(--ghost);box-shadow:rgba(102,58,243,0.25) 0px 0px 16px 0px;
+    }}
+
+    /* ── 히어로 카드 (1위) ── */
+    .card-hero{{border-radius:24px;margin-bottom:1.25rem}}
+    .card-hero .card-inner{{padding:40px}}
+    .card-hero .card-title{{font-family:var(--fd);font-size:clamp(1.3rem,3vw,1.9rem);font-weight:600;color:var(--ghost);line-height:1.25;letter-spacing:-0.02em}}
+    .card-hero .card-summary{{font-size:15px;line-height:1.75}}
+    .card-hero .badge{{font-size:11px;padding:4px 12px}}
+    .card-hero .card-rank{{font-size:13px}}
+
+    /* ── 피처 카드 (2~3위) ── */
+    .feature-row{{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}}
+    .card-feature .card-title{{font-family:var(--fd);font-size:1.05rem;font-weight:600;color:var(--comet);line-height:1.35;letter-spacing:-0.01em}}
+    .card-feature .card-summary{{font-size:13.5px}}
+
+    /* ── 그리드 카드 (4위~) ── */
+    .card-grid-wrap{{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1.25rem}}
+    .card-grid-item .card-title{{font-size:14px;font-weight:600;color:var(--comet);line-height:1.45;letter-spacing:-0.01px}}
+    .card-grid-item .card-summary{{font-size:13px}}
+    .card-grid-item .card-inner{{padding:22px;gap:10px}}
+
+    /* ── 구분선 ── */
+    .divider{{
+      text-align:center;padding:3rem 2rem;
+      border-top:1px solid var(--border);
+    }}
+    .divider p{{font-size:13px;color:var(--ig);line-height:1.8;max-width:460px;margin:0 auto}}
+    .divider strong{{color:var(--comet);font-weight:500}}
+
+    /* ── 푸터 ── */
+    footer{{
+      border-top:1px solid var(--border);padding:2rem 2.5rem;
+      display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;
+    }}
+    .fl{{font-family:var(--fd);font-size:15px;font-weight:600;color:var(--ghost);letter-spacing:-0.02em}}
+    .fl span{{color:var(--violet)}}
+    .fm-text{{font-family:var(--fm);font-size:10px;color:var(--ig);letter-spacing:0.06em}}
+
+    @media(max-width:700px){{
+      .feature-row{{grid-template-columns:1fr}}
+      .card-grid-wrap{{grid-template-columns:1fr}}
+      nav{{padding:0 1.25rem}}
+      .nav-date{{display:none}}
+      .content{{padding:2rem 1.25rem 4rem}}
+      .hero{{padding:4rem 1.25rem 3rem}}
+      .stat{{padding:1rem 1.5rem}}
     }}
   </style>
 </head>
 <body>
-  <header>
-    <h1>📰 NoScroll Daily</h1>
-    <div class="meta">{TODAY} &nbsp;·&nbsp; 총 {total_count}개 기사</div>
-  </header>
 
-  <nav class="toc">
-    <h2>목차</h2>
-    <ul>{toc_items}</ul>
+<div class="bg">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+  <div class="orb orb-4"></div>
+</div>
+
+<div class="wrap">
+  <nav>
+    <a class="nav-logo" href="#">Myrm<span>i</span>don</a>
+    <span class="nav-date">{TODAY}</span>
+    <a class="nav-cta" href="#content">브리핑 보기</a>
   </nav>
 
-  {sections_html}
+  <div class="hero">
+    <span class="hero-eyebrow">Daily Intelligence Briefing</span>
+    <h1>오늘의 <span class="accent">AI & Tech</span><br>브리핑</h1>
+    <p class="hero-sub">글로벌 소스 {total_sources}개에서 수집 · LLM이 중요도 순으로 선별</p>
+    <div class="stats">
+      <div class="stat"><div class="sn">{total_count}</div><div class="sl">선별 기사</div></div>
+      <div class="stat"><div class="sn">{active_cats}</div><div class="sl">카테고리</div></div>
+      <div class="stat"><div class="sn">{total_sources}</div><div class="sl">뉴스 소스</div></div>
+    </div>
+  </div>
 
-  <footer>Generated by NoScroll · {TODAY}</footer>
+  <div class="content" id="content">
+    {hero_html}
+    <div class="feature-row">{feature_html}</div>
+    <div class="card-grid-wrap">{grid_html}</div>
+  </div>
+
+  <div class="divider">
+    <p>매일 KST 07:00, <strong>GitHub Actions</strong>가 자동으로 수집·선별·요약합니다.<br>서버 비용 0원 · API 비용 월 2000원 이하</p>
+  </div>
+
+  <footer>
+    <span class="fl">Myrm<span>i</span>don</span>
+    <span class="fm-text">GENERATED {TODAY} · POWERED BY GEMINI</span>
+  </footer>
+</div>
+
 </body>
 </html>"""
 
 
-# ───────────────────────────────────────────
-# HTML 저장 (날짜당 1개, 덮어쓰기)
-# ───────────────────────────────────────────
 def save_html(html_content: str) -> Path:
     docs_dir = Path("docs")
     docs_dir.mkdir(exist_ok=True)
 
-    # 오늘 리포트 저장 (덮어쓰기)
     report_path = docs_dir / f"{TODAY}.html"
     report_path.write_text(html_content, encoding="utf-8")
 
-    # index.html 업데이트
     reports = sorted(docs_dir.glob("????-??-??.html"), reverse=True)
     links   = "\n".join(
         f'<li><a href="{r.name}">{r.stem}</a></li>' for r in reports
@@ -421,19 +612,21 @@ def save_html(html_content: str) -> Path:
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>NoScroll Archive</title>
+  <title>Myrmidon Archive</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
   <style>
-    body {{ font-family: sans-serif; background: #0f1117; color: #e2e8f0;
+    body {{ font-family: 'Space Grotesk', sans-serif; background: #05060f; color: #d8ecf8;
            max-width: 400px; margin: 3rem auto; padding: 0 1rem; }}
-    h1 {{ color: #4f8ef7; margin-bottom: 1.5rem; }}
+    h1 {{ font-size: 1.5rem; font-weight: 600; color: #fff; margin-bottom: 1.5rem; letter-spacing: -0.02em; }}
+    h1 span {{ color: #663af3; }}
     ul {{ list-style: none; padding: 0; }}
     li {{ margin-bottom: 0.6rem; }}
-    a {{ color: #4f8ef7; text-decoration: none; }}
-    a:hover {{ text-decoration: underline; }}
+    a {{ font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #9da7ba; text-decoration: none; letter-spacing: 0.04em; }}
+    a:hover {{ color: #b6d9fc; }}
   </style>
 </head>
 <body>
-  <h1>📰 NoScroll Archive</h1>
+  <h1>Myrm<span>i</span>don</h1>
   <ul>{links}</ul>
 </body>
 </html>"""
@@ -472,7 +665,7 @@ def send_message(chat_id: int, text: str):
 # 메인
 # ───────────────────────────────────────────
 if __name__ == "__main__":
-    print("🚀 NoScroll 가동...")
+    print("🚀 Myrmidon 가동...")
 
     config    = load_config()
     interests = config["interests"]
@@ -485,20 +678,19 @@ if __name__ == "__main__":
         print("❌ 텔레그램 봇에게 먼저 말 걸고 다시 실행해줘!")
         exit()
 
-    # ── 1. 모든 카테고리에서 수집 ──────────────────
+    # 1. 수집
     seen_urls       = set()
     articles_by_cat = {}
-
     for interest in interests:
-        name = interest["name"]
+        name      = interest["name"]
         src_count = len(interest.get("custom_rss", [])) + 1
         print(f"\n  📡 [{name}] 수집 중 ({src_count}개 소스)")
         articles = fetch_news(interest, lang, region, limit, seen_urls)
         articles_by_cat[name] = articles
         print(f"  ✅ {len(articles)}개 수집")
 
-    # ── 2. 글로벌 랭킹 (LLM 1회) ──────────────────
-    print(f"\n  🧠 전체 기사 글로벌 랭킹 중... (동적 선별)")
+    # 2. 글로벌 랭킹
+    print(f"\n  🧠 글로벌 랭킹 중... (동적 선별)")
     selected_by_cat = global_rank_and_select(articles_by_cat)
     total_selected  = sum(len(v) for v in selected_by_cat.values())
     print(f"  🎯 총 {total_selected}개 선별 완료")
@@ -506,7 +698,7 @@ if __name__ == "__main__":
         if arts:
             print(f"    └ {cat}: {len(arts)}개")
 
-    # ── 3. 요약 생성 ───────────────────────────────
+    # 3. 요약
     print(f"\n  ✍️  요약 생성 중...")
     summaries = {}
     for cat, articles in selected_by_cat.items():
@@ -514,23 +706,20 @@ if __name__ == "__main__":
             summaries[article['link']] = summarize(article)
             time.sleep(1)
 
-    # ── 4. HTML 리포트 생성 & 저장 ─────────────────
-    print(f"\n  📄 HTML 리포트 생성 중...")
-    html_content = generate_html(selected_by_cat, summaries)
+    # 4. HTML 생성 & 저장
+    print(f"\n  📄 리포트 생성 중...")
+    html_content = generate_html(selected_by_cat, summaries, interests)
     report_path  = save_html(html_content)
     report_url   = f"{PAGES_BASE}/{TODAY}.html" if PAGES_BASE else f"(로컬: {report_path})"
-    print(f"  ✅ 리포트 저장 완료: {report_path}")
+    print(f"  ✅ 저장 완료: {report_path}")
 
-    # ── 5. 텔레그램 하이라이트 생성 ───────────────
-    print(f"\n  📱 텔레그램 메시지 생성 중...")
+    # 5. 텔레그램
+    print(f"\n  📱 텔레그램 전송 중...")
     highlights = generate_highlights(selected_by_cat)
-
     telegram_msg = (
-        f"📰 NoScroll — {TODAY}\n"
+        f"Myrmidon — {TODAY}\n"
         f"총 {total_selected}개 기사 선별\n\n"
         f"오늘의 하이라이트:\n{highlights}\n\n"
-        f"🔗 풀 리포트: {report_url}"
+        f"풀 리포트: {report_url}"
     )
-
-    # ── 6. 전송 ───────────────────────────────────
     send_message(chat_id, telegram_msg)

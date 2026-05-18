@@ -1,6 +1,7 @@
 import os
 import feedparser
 import requests
+import time
 from google import genai
 
 # 환경 변수에서 키 값을 불러오도록 수정
@@ -67,8 +68,8 @@ def summarize_news_with_llm(news_item):
             contents=prompt,
         )
         return response.text.strip()
-    except Exception:
-        return "요약 실패"
+    except Exception as e:
+        return f"요약 실패 (에러 원인: {e})" # <--- 원인을 출력하도록 수정
 
 
 if __name__ == "__main__":
@@ -93,6 +94,6 @@ if __name__ == "__main__":
         final_message += f"🔗 기사 원문 보기: {article['link']}\n"
         final_message += f"✨ {summary}\n"
         final_message += "—" * 15 + "\n\n"
-
+        time.sleep(1)
     # 3. 폰으로 전송
     send_telegram_message(chat_id, final_message)

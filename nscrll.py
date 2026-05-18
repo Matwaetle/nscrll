@@ -83,7 +83,7 @@ def summarize(article: dict, interest_name: str) -> str:
 """
     try:
         response = client.models.generate_content(
-            model='gemini-3.1-pro-preview',
+            model='gemini-3.1-pro',
             contents=prompt,
         )
         return response.text.strip()

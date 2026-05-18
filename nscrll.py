@@ -1,99 +1,138 @@
 import os
+import time
+import urllib.parse
 import feedparser
 import requests
-import time
+import yaml
 from google import genai
 
-# 환경 변수에서 키 값을 불러오도록 수정
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+# ───────────────────────────────────────────
+# 환경 변수
+# ───────────────────────────────────────────
+GEMINI_API_KEY    = os.environ.get("GEMINI_API_KEY")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 
-
-def get_telegram_chat_id():
-    """봇에게 최근에 말을 건 사용자의 Chat ID를 자동으로 찾아옵니다."""
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
-    try:
-        response = requests.get(url).json()
-        if response.get("result"):
-            # 가장 최근에 대화한 사람의 chat id 추출
-            return response["result"][-1]["message"]["chat"]["id"]
-    except Exception as e:
-        print(f"❌ Chat ID 가져오기 실패: {e}")
-    return None
+# ───────────────────────────────────────────
+# 설정 불러오기
+# ───────────────────────────────────────────
+def load_config(path="config.yaml"):
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
 
 
-def send_telegram_message(chat_id, text):
-    """텔레그램 폰 앱으로 메시지를 전송합니다."""
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": text,
-        # 마크다운 파싱 에러 방지를 위해 일단 주석 처리
-        # "parse_mode": "Markdown"
-    }
-    response = requests.post(url, json=payload)
+# ───────────────────────────────────────────
+# Google News RSS (API 키 불필요)
+# ───────────────────────────────────────────
+def build_google_news_url(keywords: str, lang: str, region: str) -> str:
+    encoded = urllib.parse.quote(keywords)
+    return f"https://news.google.com/rss/search?q={encoded}&hl={lang}&gl={region}&ceid={region}:{lang}"
 
-    # 텔레그램 서버가 응답한 결과를 확인하는 디버깅 로직 추가
-    if response.status_code == 200:
-        print("✅ 폰으로 요약본 배달 완료! 텔레그램을 확인해 봐.")
-    else:
-        print(f"❌ 텔레그램 전송 실패! 원인: {response.json()}")
+def fetch_news(keywords: str, lang: str, region: str, limit: int) -> list:
+    url = build_google_news_url(keywords, lang, region)
+    feed = feedparser.parse(url)
+    return feed.entries[:limit]
 
 
-def get_latest_ai_news():
-    RSS_URL = "https://techcrunch.com/category/artificial-intelligence/feed/"
-    feed = feedparser.parse(RSS_URL)
-    return feed.entries[:3]
-
-
-def summarize_news_with_llm(news_item):
+# ───────────────────────────────────────────
+# Gemini 요약
+# ───────────────────────────────────────────
+def summarize(article: dict, interest_name: str) -> str:
     prompt = f"""
-    너는 바쁜 엔지니어를 위한 'NoScroll AI 에이전트'야.
-    다음 제공되는 영문 뉴스 제목과 요약본을 읽고, 가장 중요한 핵심만 한국어로 3줄 요약해.
+너는 바쁜 엔지니어를 위한 'NoScroll AI 에이전트'야.
+다음 영문 뉴스 제목과 요약을 읽고, [{interest_name}] 분야 관점에서 핵심만 한국어로 3줄 요약해.
 
-    [특별 지시사항]
-    - 만약 이 기사가 새로운 LLM 모델의 벤치마크 점수, AI 하드웨어 시장 동향, 또는 보안 관련 업데이트를 다루고 있다면 그 부분을 눈에 띄게 강조해.
-    - 불필요한 서론 없이 바로 요약 내용만 출력해.
+[특별 지시사항]
+- 새로운 모델 벤치마크, 하드웨어 동향, 보안 업데이트가 있으면 눈에 띄게 강조해.
+- 서론 없이 바로 요약 내용만 출력해.
 
-    [뉴스 데이터]
-    제목: {news_item['title']}
-    내용: {news_item['summary']}
-    """
+[뉴스 데이터]
+제목: {article.get('title', '')}
+내용: {article.get('summary', '')}
+"""
     try:
         response = client.models.generate_content(
-            model='gemini-3.1-pro',
+            model='gemini-2.0-flash',
             contents=prompt,
         )
         return response.text.strip()
     except Exception as e:
-        return f"요약 실패 (에러 원인: {e})" # <--- 원인을 출력하도록 수정
+        return f"요약 실패 (에러: {e})"
 
 
+# ───────────────────────────────────────────
+# 텔레그램
+# ───────────────────────────────────────────
+def get_chat_id() -> int | None:
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
+    try:
+        res = requests.get(url).json()
+        if res.get("result"):
+            return res["result"][-1]["message"]["chat"]["id"]
+    except Exception as e:
+        print(f"❌ Chat ID 가져오기 실패: {e}")
+    return None
+
+def send_message(chat_id: int, text: str):
+    # 텔레그램 메시지 최대 길이 4096자 제한 처리
+    MAX_LEN = 4096
+    chunks = [text[i:i+MAX_LEN] for i in range(0, len(text), MAX_LEN)]
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    for chunk in chunks:
+        res = requests.post(url, json={"chat_id": chat_id, "text": chunk})
+        if res.status_code == 200:
+            print("✅ 전송 완료!")
+        else:
+            print(f"❌ 전송 실패: {res.json()}")
+        time.sleep(0.5)
+
+
+# ───────────────────────────────────────────
+# 메인
+# ───────────────────────────────────────────
 if __name__ == "__main__":
-    print("🚀 NoScroll 프로토타입 가동...")
+    print("🚀 NoScroll 가동...")
 
-    # 1. 텔레그램 Chat ID 확인
-    chat_id = get_telegram_chat_id()
+    # 1. 설정 불러오기
+    config = load_config()
+    interests         = config["interests"]
+    limit             = config.get("articles_per_interest", 2)
+    lang              = config.get("language", "ko")
+    region            = config.get("region", "KR")
+
+    # 2. 텔레그램 Chat ID 확인
+    chat_id = get_chat_id()
     if not chat_id:
-        print("❌ 텔레그램 앱을 켜고, 네가 만든 봇에게 아무 대화나(예: '하이') 한 마디 걸고 다시 실행해 줘!")
+        print("❌ 텔레그램 봇에게 먼저 말 걸고 다시 실행해줘!")
         exit()
 
-    # 2. 뉴스 수집 및 요약
-    articles = get_latest_ai_news()
+    # 3. 분야별 뉴스 수집 & 요약
+    final_message = "🤖 NoScroll 오늘의 뉴스 브리핑 🤖\n\n"
 
-    # 폰으로 보낼 최종 메시지 조립
-    final_message = "🤖 NoScroll 오늘의 AI 뉴스 요약 🤖\n\n"
+    for interest in interests:
+        name     = interest["name"]
+        keywords = interest["keywords"]
+        emoji    = interest.get("emoji", "📰")
 
-    for idx, article in enumerate(articles, 1):
-        summary = summarize_news_with_llm(article)
+        print(f"  📡 [{name}] 뉴스 수집 중...")
+        articles = fetch_news(keywords, lang, region, limit)
 
-        final_message += f"[{idx}] {article['title']}\n"
-        final_message += f"🔗 기사 원문 보기: {article['link']}\n"
-        final_message += f"✨ {summary}\n"
-        final_message += "—" * 15 + "\n\n"
-        time.sleep(1)
-    # 3. 폰으로 전송
-    send_telegram_message(chat_id, final_message)
+        if not articles:
+            print(f"  ⚠️  [{name}] 기사 없음, 스킵")
+            continue
+
+        final_message += f"{emoji} {name}\n"
+        final_message += "━" * 20 + "\n"
+
+        for idx, article in enumerate(articles, 1):
+            summary = summarize(article, name)
+            final_message += f"[{idx}] {article.get('title', '제목 없음')}\n"
+            final_message += f"🔗 {article.get('link', '')}\n"
+            final_message += f"✨ {summary}\n\n"
+            time.sleep(1)  # API 호출 간격
+
+        final_message += "\n"
+
+    # 4. 전송
+    send_message(chat_id, final_message)

@@ -713,7 +713,7 @@ def generate_html(selected_by_cat: dict, summaries: dict, interests: list, ranke
   <div class="hero">
     <span class="hero-eyebrow">Daily Intelligence Briefing</span>
     <h1>오늘의 <span class="accent">AI & Tech</span><br>브리핑</h1>
-    <p class="hero-sub">글로벌 소스 {total_sources}개에서 수집 · LLM이 중요도 순으로 선별</p>
+    <p class="hero-sub">글로벌 소스 {total_sources}개에서 수집</p>
     <div class="stats">
       <div class="stat"><div class="sn">{total_count}</div><div class="sl">선별 기사</div></div>
       <div class="stat"><div class="sn">{active_cats}</div><div class="sl">카테고리</div></div>

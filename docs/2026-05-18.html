@@ -207,24 +207,93 @@
       color:var(--ghost);box-shadow:rgba(102,58,243,0.25) 0px 0px 16px 0px;
     }
 
-    /* ── 히어로 카드 (1위) ── */
-    .card-hero{border-radius:24px;margin-bottom:1.25rem}
-    .card-hero .card-inner{padding:40px}
-    .card-hero .card-title{font-family:var(--fd);font-size:clamp(1.3rem,3vw,1.9rem);font-weight:600;color:var(--ghost);line-height:1.25;letter-spacing:-0.02em}
-    .card-hero .card-summary{font-size:15px;line-height:1.75}
-    .card-hero .badge{font-size:11px;padding:4px 12px}
-    .card-hero .card-rank{font-size:13px}
+    /* ── 히어로 풀너비 카드 ── */
+    .card-hero-full{
+      border-radius:24px;
+      display:flex;
+      align-items:center;
+      gap:0;
+      margin-bottom:3rem;
+      overflow:hidden;
+      min-height:260px;
+    }
+    .hero-num{
+      font-family:var(--fd);
+      font-size:clamp(5rem,12vw,9rem);
+      font-weight:700;
+      color:rgba(255,255,255,0.06);
+      letter-spacing:-0.04em;
+      line-height:1;
+      padding:3rem 2.5rem;
+      flex-shrink:0;
+      user-select:none;
+      min-width:180px;
+      text-align:center;
+      border-right:1px solid var(--border);
+    }
+    .hero-body{
+      flex:1;
+      padding:3rem;
+    }
 
-    /* ── 피처 카드 (2~3위) ── */
-    .feature-row{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}
-    .card-feature .card-title{font-family:var(--fd);font-size:1.05rem;font-weight:600;color:var(--comet);line-height:1.35;letter-spacing:-0.01em}
-    .card-feature .card-summary{font-size:13.5px}
+    /* ── 지그재그 카드 ── */
+    .card-zz{
+      display:flex;
+      align-items:stretch;
+      border-radius:20px;
+      margin-bottom:1.5rem;
+      min-height:180px;
+      overflow:hidden;
+    }
+    .zz-deco{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      padding:2rem 2.5rem;
+      min-width:200px;
+      max-width:240px;
+      flex-shrink:0;
+      border-right:1px solid var(--border);
+      position:relative;
+      overflow:hidden;
+    }
+    .card-zz[style*="row-reverse"] .zz-deco{
+      border-right:none;
+      border-left:1px solid var(--border);
+    }
+    .zz-num{
+      font-family:var(--fd);
+      font-size:clamp(3rem,6vw,5rem);
+      font-weight:700;
+      color:rgba(255,255,255,0.07);
+      letter-spacing:-0.04em;
+      line-height:1;
+      user-select:none;
+    }
+    .dot-grid{
+      position:absolute;
+      inset:0;
+      background-image:radial-gradient(circle, rgba(186,215,247,0.15) 1px, transparent 1px);
+      background-size:18px 18px;
+      pointer-events:none;
+      mask-image:radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%);
+    }
+    .zz-text{
+      flex:1;
+      padding:2rem 2.5rem;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+    }
+    .zz-text h3 a, .hero-body h2 a{
+      color:inherit;
+      text-decoration:none;
+      transition:opacity 0.2s;
+    }
+    .zz-text h3 a:hover, .hero-body h2 a:hover{opacity:0.75}
 
-    /* ── 그리드 카드 (4위~) ── */
-    .card-grid-wrap{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1.25rem}
-    .card-grid-item .card-title{font-size:14px;font-weight:600;color:var(--comet);line-height:1.45;letter-spacing:-0.01px}
-    .card-grid-item .card-summary{font-size:13px}
-    .card-grid-item .card-inner{padding:22px;gap:10px}
+    /* ── 카드 공통 ── */
 
     /* ── 구분선 ── */
     .divider{
@@ -275,7 +344,7 @@
     <h1>오늘의 <span class="accent">AI & Tech</span><br>브리핑</h1>
     <p class="hero-sub">글로벌 소스 53개에서 수집 · LLM이 중요도 순으로 선별</p>
     <div class="stats">
-      <div class="stat"><div class="sn">15</div><div class="sl">선별 기사</div></div>
+      <div class="stat"><div class="sn">17</div><div class="sl">선별 기사</div></div>
       <div class="stat"><div class="sn">4</div><div class="sl">카테고리</div></div>
       <div class="stat"><div class="sn">53</div><div class="sl">뉴스 소스</div></div>
     </div>
@@ -283,173 +352,257 @@
 
   <div class="content" id="content">
     
-        <article class="card card-hero">
-          <div class="card-inner">
-            <div class="card-meta">
-              <span class="badge">Global AI, LLM & Trend</span>
-              <span class="card-rank">01</span>
-            </div>
-            <h2 class="card-title"><a href="https://www.reddit.com/r/artificial/comments/1tg1at4/for_the_first_time_in_years_chatgpt_falls_to/" target="_blank" rel="noopener">For the first time in years, ChatGPT falls to second place in the generative AI market, slumping behind Anthropic’s Claude. ChatGPT now lags in second place in various key metrics, including net new ARR, mobile app downloads, business adoption, daily active users, annualized revenue, etc.</a></h2>
-            <p class="card-summary">앤스로픽의 클로드가 신규 ARR 300억 달러를 돌파하며 오픈AI의 250억 달러를 제치고 시장 점유율 1위로 올라섰어.<br>기업 고객 수와 앱 다운로드 등 핵심 지표에서 챗GPT가 밀렸고, 특히 포춘 10대 기업 중 8곳이 클로드를 도입한 상황이야.<br>시리즈 G 투자 이후 2개월 만에 연간 100만 달러 이상 지출하는 엔터프라이즈 고객이 1,000곳을 넘기며 생태계 판도가 바뀌었어.</p>
+        <article class="card card-hero-full" style="background:rgba(102,58,243,0.07);box-shadow:rgba(102,58,243,0.28) 0px 0px 0px 1px inset,rgba(255,255,255,0.07) 0px 1px 0px inset,rgba(0,0,0,0.45) 0px 24px 48px">
+          <div class="hero-num">01</div>
+          <div class="hero-body">
+            <span class="badge">Global AI, LLM & Trend</span>
+            <h2 style="font-size:2rem;font-weight:600;color:#fff;line-height:1.2;letter-spacing:-0.025em;margin:14px 0 16px">
+              <a href="https://www.reddit.com/r/artificial/comments/1tg1at4/for_the_first_time_in_years_chatgpt_falls_to/" target="_blank" rel="noopener">For the first time in years, ChatGPT falls to second place in the generative AI market, slumping behind Anthropic’s Claude. ChatGPT now lags in second place in various key metrics, including net new ARR, mobile app downloads, business adoption, daily active users, annualized revenue, etc.</a>
+            </h2>
+            <p style="font-size:15px;color:var(--wh);line-height:1.75;margin-bottom:20px">앤스로픽 클로드가 2026년 4월 기준 ARR 300억 달러를 돌파하며 24~25억 달러 수준인 오픈AI를 추월했어.<br>포춘 10대 기업 중 8곳이 클로드를 도입했고 연간 100만 달러 이상 지출하는 엔터프라이즈 고객도 1,000곳을 넘겼어.<br>신규 ARR과 일일 활성 사용자 등 주요 지표에서 챗GPT가 밀려나며 제너레이티브 AI 시장의 주도권이 교체된 상황이야.</p>
             <div class="card-foot"><span class="src">www.reddit.com</span><a class="read-btn" href="https://www.reddit.com/r/artificial/comments/1tg1at4/for_the_first_time_in_years_chatgpt_falls_to/" target="_blank" rel="noopener">읽기</a></div>
           </div>
         </article>
-    <div class="feature-row">
-        <article class="card card-feature">
-          <div class="card-inner">
-            <div class="card-meta">
-              <span class="badge">Global AI, LLM & Trend</span>
-              <span class="card-rank">02</span>
-            </div>
-            <h3 class="card-title"><a href="https://www.reddit.com/r/MachineLearning/comments/1tfpvod/recent_developments_in_llm_architectures_kv/" target="_blank" rel="noopener">Recent Developments in LLM Architectures: KV Sharing, mHC, and Compressed Attention [P]</a></h3>
-            <p class="card-summary">KV 캐시를 공유하거나 압축하는 기법이 LLM 추론 속도와 메모리 효율 개선의 핵심으로 떠올랐어.<br>멀티 헤드 어텐션 구조를 변형해 가용 자원을 최적화하는 mHC와 같은 시도들이 실무 적용 가능성을 높이는 상황이야.<br>결국 컨텍스트 윈도우 확장에 따른 병목 현상을 연산 복잡도 최적화로 해결하려는 시도가 주류를 이루고 있어.</p>
-            <div class="card-foot"><span class="src">www.reddit.com</span><a class="read-btn" href="https://www.reddit.com/r/MachineLearning/comments/1tfpvod/recent_developments_in_llm_architectures_kv/" target="_blank" rel="noopener">읽기</a></div>
+        <article class="card card-zz" style="background:rgba(80,100,240,0.06);box-shadow:rgba(80,100,240,0.24) 0px 0px 0px 1px inset,rgba(255,255,255,0.06) 0px 1px 0px inset,rgba(0,0,0,0.38) 0px 16px 36px;flex-direction:row">
+          
+          <div class="zz-text">
+            <h3 style="font-size:1.15rem;font-weight:600;color:#d8ecf8;line-height:1.35;letter-spacing:-0.015em;margin-bottom:12px">
+              <a href="https://semianalysis.com/2025/09/16/xais-colossus-2-first-gigawatt-datacenter/" target="_blank" rel="noopener">xAI’s Colossus 2 – First Gigawatt Datacenter In The World, Unique RL Methodology, Capital Raise</a>
+            </h3>
+            <p style="font-size:14px;color:var(--wh);line-height:1.75;margin-bottom:16px">xAI가 멤피스에 20만 개의 H100/H200과 3만 개의 GB200 NVL72를 결합한 세계 최초 기가와트급 단일 코히어런트 클러스터를 구축했어.<br>기존 Colossus 1의 300MW 전력 제한을 넘어선 규모로 확장 중이며 클러스터 간 통신 병목을 해결하는 독자적인 강화학습 방법론을 적용했어.<br>구글의 멀티 데이터센터 방식과 달리 단일 인프라에서 방대한 연산을 처리하는 아키텍처를 고수하며 하드웨어 효율을 극대화하는 상황이야.</p>
+            <div class="card-foot"><span class="src">semianalysis.com</span><a class="read-btn" href="https://semianalysis.com/2025/09/16/xais-colossus-2-first-gigawatt-datacenter/" target="_blank" rel="noopener">읽기</a></div>
+          </div>
+          <div class="zz-deco">
+            <div class="zz-num">02</div>
+            <span class="badge" style="margin-top:12px">AI Hardware & Infra</span>
+            <div class="dot-grid"></div>
           </div>
         </article>
-        <article class="card card-feature">
-          <div class="card-inner">
-            <div class="card-meta">
-              <span class="badge">Global AI, LLM & Trend</span>
-              <span class="card-rank">03</span>
-            </div>
-            <h3 class="card-title"><a href="https://www.technologyreview.com/2026/05/15/1137357/musk-v-altman-week-3/" target="_blank" rel="noopener">Musk v. Altman week 3: Elon Musk and Sam Altman traded blows over each other’s credibility. Now the jury will pick a side.</a></h3>
-            <p class="card-summary">머스크와 알트먼의 법적 공방이 막바지에 다다랐고 결국 배심원 판결로 결론이 날 예정이야.<br>알트먼은 과거 거짓말과 이해상충 문제로 집중 추궁당했고 머스크는 권력욕에 사로잡혀 통제권을 노린 인물로 묘사됐어.<br>핵심 기술 논쟁보다는 경영진의 도덕성과 내부 의사결정 구조의 투명성에 초점이 맞춰진 진흙탕 싸움이야.</p>
+        <article class="card card-zz" style="background:rgba(50,130,230,0.05);box-shadow:rgba(50,130,230,0.22) 0px 0px 0px 1px inset,rgba(255,255,255,0.06) 0px 1px 0px inset,rgba(0,0,0,0.38) 0px 16px 36px;flex-direction:row-reverse">
+          
+          <div class="zz-deco">
+            <div class="zz-num">03</div>
+            <span class="badge" style="margin-top:12px">Global AI, LLM & Trend</span>
+            <div class="dot-grid"></div>
+          </div>
+          <div class="zz-text">
+            <h3 style="font-size:1.08rem;font-weight:600;color:#d8ecf8;line-height:1.35;letter-spacing:-0.015em;margin-bottom:12px">
+              <a href="https://www.technologyreview.com/2026/05/15/1137357/musk-v-altman-week-3/" target="_blank" rel="noopener">Musk v. Altman week 3: Elon Musk and Sam Altman traded blows over each other’s credibility. Now the jury will pick a side.</a>
+            </h3>
+            <p style="font-size:14px;color:var(--wh);line-height:1.75;margin-bottom:16px">머스크와 알트먼의 법적 공방이 막바지에 다다랐고 결국 배심원단이 양측의 신뢰성 문제 중 누구 손을 들어줄지 결정할 거야.<br>알트먼은 과거 OpenAI 거래처들과의 이해 상충 및 기만 행위를 집중 추궁받았어.<br>반면 알트먼은 머스크를 AGI 개발 주도권을 장악하려던 권력 지향적 인물로 몰아세우며 맞대응 중이야.</p>
             <div class="card-foot"><span class="src">www.technologyreview.com</span><a class="read-btn" href="https://www.technologyreview.com/2026/05/15/1137357/musk-v-altman-week-3/" target="_blank" rel="noopener">읽기</a></div>
           </div>
-        </article></div>
-    <div class="card-grid-wrap">
-        <article class="card card-grid-item">
-          <div class="card-inner">
-            <div class="card-meta">
-              <span class="badge">Global AI, LLM & Trend</span>
-              <span class="card-rank">04</span>
-            </div>
-            <h3 class="card-title"><a href="https://bdtechtalks.com/2026/05/11/google-gemma-4-multi-token-prediction/?utm_source=rss&utm_medium=rss&utm_campaign=google-gemma-4-multi-token-prediction" target="_blank" rel="noopener">Google brings multi-token prediction Gemma 4 LLMs</a></h3>
-            <p class="card-summary">Gemma 4가 기존의 다음 토큰 예측 방식에서 멀티 토큰 예측 구조로 전환하며 로컬 추론 성능을 크게 끌어올렸어.<br>DFlash 기술을 결합해 추론 과정의 연산 효율을 최적화하면서 전체 처리량이 기존 대비 3배에서 6배까지 향상된 상황이야.<br>단순 모델 파라미터 증대보다 아키텍처 개선을 통한 토큰 생성 병목 해소에 집중한 결과로 보여.</p>
+        </article>
+        <article class="card card-zz" style="background:rgba(30,150,210,0.05);box-shadow:rgba(30,150,210,0.20) 0px 0px 0px 1px inset,rgba(255,255,255,0.06) 0px 1px 0px inset,rgba(0,0,0,0.38) 0px 16px 36px;flex-direction:row">
+          
+          <div class="zz-text">
+            <h3 style="font-size:1.02rem;font-weight:600;color:#d8ecf8;line-height:1.35;letter-spacing:-0.015em;margin-bottom:12px">
+              <a href="https://www.reddit.com/r/hardware/comments/1tg823m/china_bypasses_us_gpu_bans_with_154exaflops/" target="_blank" rel="noopener">China bypasses US GPU bans with 1.54-exaflops 'LineShine' supercomputer — CPU-only monster packs 2.4 million Huawei-designed Armv9 cores</a>
+            </h3>
+            <p style="font-size:13.5px;color:var(--wh);line-height:1.75;margin-bottom:16px">중국이 미국 GPU 수출 제재를 우회하려고 화웨이 Armv9 기반 CPU 240만 개를 박아 1.54엑사플롭스 성능의 라인샤인 슈퍼컴퓨터를 구축했어.<br>GPU 가속기 없이 CPU만으로 엑사플롭급을 달성한 건데, 이는 기존 아키텍처 한계를 대규모 병렬 연산으로 때려 맞춘 방식이야.<br>결국 범용 Arm 코어만으로도 특정 워크로드에서는 고성능 컴퓨팅이 가능하다는 걸 증명한 거라 미국 제재의 실효성 논란은 계속될 상황이야.</p>
+            <div class="card-foot"><span class="src">www.reddit.com</span><a class="read-btn" href="https://www.reddit.com/r/hardware/comments/1tg823m/china_bypasses_us_gpu_bans_with_154exaflops/" target="_blank" rel="noopener">읽기</a></div>
+          </div>
+          <div class="zz-deco">
+            <div class="zz-num">04</div>
+            <span class="badge" style="margin-top:12px">AI Hardware & Infra</span>
+            <div class="dot-grid"></div>
+          </div>
+        </article>
+        <article class="card card-zz" style="background:rgba(20,160,190,0.04);box-shadow:rgba(20,160,190,0.18) 0px 0px 0px 1px inset,rgba(255,255,255,0.06) 0px 1px 0px inset,rgba(0,0,0,0.38) 0px 16px 36px;flex-direction:row-reverse">
+          
+          <div class="zz-deco">
+            <div class="zz-num">05</div>
+            <span class="badge" style="margin-top:12px">Global AI, LLM & Trend</span>
+            <div class="dot-grid"></div>
+          </div>
+          <div class="zz-text">
+            <h3 style="font-size:0.97rem;font-weight:500;color:#d8ecf8;line-height:1.35;letter-spacing:-0.015em;margin-bottom:12px">
+              <a href="https://bdtechtalks.com/2026/05/11/google-gemma-4-multi-token-prediction/?utm_source=rss&utm_medium=rss&utm_campaign=google-gemma-4-multi-token-prediction" target="_blank" rel="noopener">Google brings multi-token prediction Gemma 4 LLMs</a>
+            </h3>
+            <p style="font-size:13px;color:var(--wh);line-height:1.75;margin-bottom:16px">구글이 젬마 4에 멀티 토큰 예측 아키텍처를 도입해 추론 속도를 기존 대비 3배에서 6배까지 끌어올렸어.<br>기존 단일 토큰 생성 방식에서 벗어나 한 번의 포워드 패스로 여러 토큰을 동시에 출력하며 연산 효율을 최적화했어.<br>커뮤니티 주도의 DFlash 기술과 결합해 로컬 환경에서의 LLM 처리량과 지연 시간을 획기적으로 개선한 상황이야.</p>
             <div class="card-foot"><span class="src">bdtechtalks.com</span><a class="read-btn" href="https://bdtechtalks.com/2026/05/11/google-gemma-4-multi-token-prediction/?utm_source=rss&utm_medium=rss&utm_campaign=google-gemma-4-multi-token-prediction" target="_blank" rel="noopener">읽기</a></div>
           </div>
         </article>
-        <article class="card card-grid-item">
-          <div class="card-inner">
-            <div class="card-meta">
-              <span class="badge">Global AI, LLM & Trend</span>
-              <span class="card-rank">05</span>
-            </div>
-            <h3 class="card-title"><a href="https://bdtechtalks.com/2026/05/04/memory-sparse-attention/?utm_source=rss&utm_medium=rss&utm_campaign=memory-sparse-attention" target="_blank" rel="noopener">How Memory Sparse Attention scales LLM memory to 100 million tokens</a></h3>
-            <p class="card-summary">MSA 기술을 활용해 LLM 컨텍스트 윈도우를 1억 토큰까지 확장했어.<br>기존 어텐션 연산의 메모리 병목을 스파스 방식으로 해결해 정확도 손실 없이 긴 문맥 처리가 가능해진 상황이야.<br>아키텍처 효율화로 방대한 데이터를 효율적으로 처리하는 메모리 관리 기법을 구현한 게 핵심이야.</p>
+        <article class="card card-zz" style="background:rgba(15,165,170,0.04);box-shadow:rgba(15,165,170,0.17) 0px 0px 0px 1px inset,rgba(255,255,255,0.06) 0px 1px 0px inset,rgba(0,0,0,0.38) 0px 16px 36px;flex-direction:row">
+          
+          <div class="zz-text">
+            <h3 style="font-size:0.93rem;font-weight:500;color:#d8ecf8;line-height:1.35;letter-spacing:-0.015em;margin-bottom:12px">
+              <a href="https://bdtechtalks.com/2026/05/04/memory-sparse-attention/?utm_source=rss&utm_medium=rss&utm_campaign=memory-sparse-attention" target="_blank" rel="noopener">How Memory Sparse Attention scales LLM memory to 100 million tokens</a>
+            </h3>
+            <p style="font-size:13px;color:var(--wh);line-height:1.75;margin-bottom:16px">기존 어텐션의 쿼리-키 매트릭스 연산 비용을 획기적으로 줄이는 Memory Sparse Attention 아키텍처로 컨텍스트 윈도우를 1억 토큰까지 확장했어.<br>전체 토큰을 다 계산하지 않고 중요도가 높은 키-밸류 쌍만 희소하게 참조하는 방식으로 메모리 효율을 극대화한 구조야.<br>대규모 컨텍스트를 처리하면서도 기존 모델들의 성능 정확도는 유지하는 게 핵심인데, 실제 프로덕션 환경에서의 추론 지연 시간은 추가 확인이 필요해.</p>
             <div class="card-foot"><span class="src">bdtechtalks.com</span><a class="read-btn" href="https://bdtechtalks.com/2026/05/04/memory-sparse-attention/?utm_source=rss&utm_medium=rss&utm_campaign=memory-sparse-attention" target="_blank" rel="noopener">읽기</a></div>
           </div>
+          <div class="zz-deco">
+            <div class="zz-num">06</div>
+            <span class="badge" style="margin-top:12px">Global AI, LLM & Trend</span>
+            <div class="dot-grid"></div>
+          </div>
         </article>
-        <article class="card card-grid-item">
-          <div class="card-inner">
-            <div class="card-meta">
-              <span class="badge">AI Hardware & Infra</span>
-              <span class="card-rank">06</span>
-            </div>
-            <h3 class="card-title"><a href="https://nvlabs.github.io/cuda-oxide/index.html" target="_blank" rel="noopener">CUDA-oxide: Nvidia's official Rust to CUDA compiler</a></h3>
-            <p class="card-summary">엔비디아가 러스트 코드를 쿠다 커널로 직접 컴파일하는 툴체인 CUDA-oxide를 공개했어.<br>기존 C++ 기반의 복잡한 추상화 대신 러스트의 안전한 메모리 관리와 타입 시스템을 쿠다 프로그래밍에 도입하려는 목적이야.<br>LLVM 기반 백엔드로 런타임 오버헤드 없이 네이티브 쿠다 코드와 동일한 성능을 내도록 설계됐어.</p>
+        <article class="card card-zz" style="background:rgba(10,160,150,0.04);box-shadow:rgba(10,160,150,0.16) 0px 0px 0px 1px inset,rgba(255,255,255,0.06) 0px 1px 0px inset,rgba(0,0,0,0.38) 0px 16px 36px;flex-direction:row-reverse">
+          
+          <div class="zz-deco">
+            <div class="zz-num">07</div>
+            <span class="badge" style="margin-top:12px">AI Hardware & Infra</span>
+            <div class="dot-grid"></div>
+          </div>
+          <div class="zz-text">
+            <h3 style="font-size:0.90rem;font-weight:500;color:#d8ecf8;line-height:1.35;letter-spacing:-0.015em;margin-bottom:12px">
+              <a href="https://nvlabs.github.io/cuda-oxide/index.html" target="_blank" rel="noopener">CUDA-oxide: Nvidia's official Rust to CUDA compiler</a>
+            </h3>
+            <p style="font-size:12.5px;color:var(--wh);line-height:1.75;margin-bottom:16px">엔비디아에서 Rust 코드를 직접 CUDA 커널로 변환해주는 공식 컴파일러인 CUDA-oxide를 공개했어.<br>LLVM 기반의 Rust 컴파일러와 통합해 메모리 안전성을 확보하면서 기존 C++ 기반 CUDA의 파편화된 생산성 문제를 해결하려는 의도야.<br>기존 커널 개발의 핵심인 런타임 성능 손실 없이 Rust의 타입 시스템과 추상화 기능을 GPU 프로그래밍에 도입한 게 기술적 핵심이야.</p>
             <div class="card-foot"><span class="src">nvlabs.github.io</span><a class="read-btn" href="https://nvlabs.github.io/cuda-oxide/index.html" target="_blank" rel="noopener">읽기</a></div>
           </div>
         </article>
-        <article class="card card-grid-item">
-          <div class="card-inner">
-            <div class="card-meta">
-              <span class="badge">AI Hardware & Infra</span>
-              <span class="card-rank">07</span>
-            </div>
-            <h3 class="card-title"><a href="https://www.reddit.com/r/hardware/comments/1tg823m/china_bypasses_us_gpu_bans_with_154exaflops/" target="_blank" rel="noopener">China bypasses US GPU bans with 1.54-exaflops 'LineShine' supercomputer — CPU-only monster packs 2.4 million Huawei-designed Armv9 cores</a></h3>
-            <p class="card-summary">중국이 미국 GPU 수출 규제를 우회하려고 화웨이 Armv9 기반 CPU 240만 개를 연결한 1.54 엑사플롭스급 슈퍼컴퓨터 라인샤인을 구축했어.<br>가속기 없이 CPU 연산 성능만으로 엑사스케일을 달성한 건데, 전력 효율과 상호연결 대역폭 측면에서 기존 GPU 클러스터와 어떤 병목 차이가 있을지 의문이야.<br>고성능 컴퓨팅 아키텍처에서 범용 CPU 비중을 극단적으로 높인 모델이라 소프트웨어 스택 최적화가 전체 연산 효율의 핵심이 될 상황이야.</p>
-            <div class="card-foot"><span class="src">www.reddit.com</span><a class="read-btn" href="https://www.reddit.com/r/hardware/comments/1tg823m/china_bypasses_us_gpu_bans_with_154exaflops/" target="_blank" rel="noopener">읽기</a></div>
+        <article class="card card-zz" style="background:rgba(15,150,130,0.03);box-shadow:rgba(15,150,130,0.14) 0px 0px 0px 1px inset,rgba(255,255,255,0.06) 0px 1px 0px inset,rgba(0,0,0,0.38) 0px 16px 36px;flex-direction:row">
+          
+          <div class="zz-text">
+            <h3 style="font-size:0.87rem;font-weight:500;color:#d8ecf8;line-height:1.35;letter-spacing:-0.015em;margin-bottom:12px">
+              <a href="https://deepmind.google/blog/alphaevolve-impact/" target="_blank" rel="noopener">AlphaEvolve: How our Gemini-powered coding agent is scaling impact across fields</a>
+            </h3>
+            <p style="font-size:12.5px;color:var(--wh);line-height:1.75;margin-bottom:16px">구글이 제미나이 기반의 코드 생성 에이전트 AlphaEvolve를 공개했는데 모델 구조를 최적화해 복잡한 비즈니스 로직과 인프라 코드 자동 생성 효율을 극대화했어.<br>기존 에이전트 대비 대규모 코드베이스에 대한 문맥 파악과 상태 추론 성능을 끌어올려 대규모 시스템 유지보수와 과학적 연산 최적화에 특화된 모델이야.<br>결국 LLM 추론 단계에서 코드 생성 경로를 다각화해 오류율을 줄이고 범용 라이브러리 연동성을 높여 엔지니어 생산성을 실질적으로 개선하겠다는 전략이야.</p>
+            <div class="card-foot"><span class="src">deepmind.google</span><a class="read-btn" href="https://deepmind.google/blog/alphaevolve-impact/" target="_blank" rel="noopener">읽기</a></div>
+          </div>
+          <div class="zz-deco">
+            <div class="zz-num">08</div>
+            <span class="badge" style="margin-top:12px">Global AI, LLM & Trend</span>
+            <div class="dot-grid"></div>
           </div>
         </article>
-        <article class="card card-grid-item">
-          <div class="card-inner">
-            <div class="card-meta">
-              <span class="badge">AI Hardware & Infra</span>
-              <span class="card-rank">08</span>
-            </div>
-            <h3 class="card-title"><a href="https://semianalysis.com/2025/09/16/xais-colossus-2-first-gigawatt-datacenter/" target="_blank" rel="noopener">xAI’s Colossus 2 – First Gigawatt Datacenter In The World, Unique RL Methodology, Capital Raise</a></h3>
-            <p class="card-summary">xAI가 122일 만에 구축한 멤피스 클러스터는 H100/H200 20만 개와 GB200 NVL72 3만 개를 결합한 세계 최대 규모의 단일 코히런트 아키텍처야.<br>기존 300MW 수준인 Colossus 1을 넘어 기가와트급 전력을 사용하는 Colossus 2로 확장하며 하드웨어 인프라 밀도를 극한으로 끌어올리는 중이야.<br>단순 하드웨어 확장을 넘어 독자적인 강화학습(RL) 방법론을 적용해 모델 학습 효율을 최적화하려는 전략을 취하고 있어.</p>
-            <div class="card-foot"><span class="src">semianalysis.com</span><a class="read-btn" href="https://semianalysis.com/2025/09/16/xais-colossus-2-first-gigawatt-datacenter/" target="_blank" rel="noopener">읽기</a></div>
+        <article class="card card-zz" style="background:rgba(15,150,130,0.03);box-shadow:rgba(15,150,130,0.14) 0px 0px 0px 1px inset,rgba(255,255,255,0.06) 0px 1px 0px inset,rgba(0,0,0,0.38) 0px 16px 36px;flex-direction:row-reverse">
+          
+          <div class="zz-deco">
+            <div class="zz-num">09</div>
+            <span class="badge" style="margin-top:12px">Global AI, LLM & Trend</span>
+            <div class="dot-grid"></div>
+          </div>
+          <div class="zz-text">
+            <h3 style="font-size:0.87rem;font-weight:500;color:#d8ecf8;line-height:1.35;letter-spacing:-0.015em;margin-bottom:12px">
+              <a href="https://deepmind.google/blog/ai-co-clinician/" target="_blank" rel="noopener">Enabling a new model for healthcare with AI co-clinician</a>
+            </h3>
+            <p style="font-size:12.5px;color:var(--wh);line-height:1.75;margin-bottom:16px">구글이 임상 의사결정을 돕는 AI 코-클리니션 모델을 개발 중인데, 핵심은 대규모 의료 데이터를 학습해 진단과 치료 계획을 보조하는 구조야.<br>의료 특화 멀티모달 아키텍처를 도입해 방대한 환자 차트와 영상 정보를 실시간으로 해석하고 추론하는 성능을 높이려는 상황이야.<br>단순 보조를 넘어 실제 임상 워크플로우에 통합하는 것이 목표인데, 결국 민감한 의료 데이터의 보안과 편향성 문제를 어떻게 해결할지가 관건이지.</p>
+            <div class="card-foot"><span class="src">deepmind.google</span><a class="read-btn" href="https://deepmind.google/blog/ai-co-clinician/" target="_blank" rel="noopener">읽기</a></div>
           </div>
         </article>
-        <article class="card card-grid-item">
-          <div class="card-inner">
-            <div class="card-meta">
-              <span class="badge">AI Hardware & Infra</span>
-              <span class="card-rank">09</span>
-            </div>
-            <h3 class="card-title"><a href="https://www.nextplatform.com/compute/2026/05/15/with-its-ipo-done-cerebras-can-get-back-to-pushing-the-ai-envelope/5241317" target="_blank" rel="noopener">With Its IPO Done, Cerebras Can Get Back To Pushing The AI Envelope</a></h3>
-            <p class="card-summary">세레브라스가 IPO 이후 CS-3 시스템의 웨이퍼 스케일 엔진 아키텍처를 기반으로 추론 성능 극대화에 집중하는 중이야.<br>기존 GPU 대비 20배 빠른 토큰 생성 속도를 내세우며 Llama 3.1 70B 모델 등 대규모 파라미터 추론 효율 개선에 올인했어.<br>전용 하드웨어 가속으로 연산 효율을 높였지만 실제 상용화 환경에서의 범용적인 소프트웨어 호환성 확보가 핵심 과제야.</p>
-            <div class="card-foot"><span class="src">www.nextplatform.com</span><a class="read-btn" href="https://www.nextplatform.com/compute/2026/05/15/with-its-ipo-done-cerebras-can-get-back-to-pushing-the-ai-envelope/5241317" target="_blank" rel="noopener">읽기</a></div>
+        <article class="card card-zz" style="background:rgba(15,150,130,0.03);box-shadow:rgba(15,150,130,0.14) 0px 0px 0px 1px inset,rgba(255,255,255,0.06) 0px 1px 0px inset,rgba(0,0,0,0.38) 0px 16px 36px;flex-direction:row">
+          
+          <div class="zz-text">
+            <h3 style="font-size:0.87rem;font-weight:500;color:#d8ecf8;line-height:1.35;letter-spacing:-0.015em;margin-bottom:12px">
+              <a href="https://techcrunch.com/2026/05/17/why-trust-is-a-big-question-at-the-elon-musk-openai-trial/" target="_blank" rel="noopener">Why trust is a big question at the Elon Musk-OpenAI trial</a>
+            </h3>
+            <p style="font-size:12.5px;color:var(--wh);line-height:1.75;margin-bottom:16px">오픈AI 소송의 핵심은 샘 알트먼의 신뢰성 문제로 좁혀졌어.<br>비영리 단체로 시작했던 초기 미션과 현재 영리 전환 사이의 구조적 모순이 법적 쟁점이야.<br>결국 투명한 거버넌스 부재가 기업 운영의 리스크로 작용하고 있는 상황이야.</p>
+            <div class="card-foot"><span class="src">techcrunch.com</span><a class="read-btn" href="https://techcrunch.com/2026/05/17/why-trust-is-a-big-question-at-the-elon-musk-openai-trial/" target="_blank" rel="noopener">읽기</a></div>
+          </div>
+          <div class="zz-deco">
+            <div class="zz-num">10</div>
+            <span class="badge" style="margin-top:12px">Global AI, LLM & Trend</span>
+            <div class="dot-grid"></div>
           </div>
         </article>
-        <article class="card card-grid-item">
-          <div class="card-inner">
-            <div class="card-meta">
-              <span class="badge">AI Security & Jailbreak</span>
-              <span class="card-rank">10</span>
-            </div>
-            <h3 class="card-title"><a href="https://www.reddit.com/r/netsec/comments/1tghcgy/attacking_cloud_service_providers_acsp_an/" target="_blank" rel="noopener">Attacking Cloud Service Providers (ACSP) - An interactive textbook on control-plane intrusion and breaking cross-tenant isolation</a></h3>
-            <p class="card-summary">275개 실제 클라우드 서비스 제공자 취약점을 분석해 컨트롤 플레인 침투와 테넌트 간 격리 우회 기법을 다룬 기술서야.<br>개별 고객 계정의 설정 오류를 찾는 수준을 넘어 클라우드 제공자 내부의 신뢰 경계와 인프라 자체를 공격하는 법을 알려줘.<br>클라우드 인프라 아키텍처의 논리적 허점을 파고들어 타 테넌트 데이터에 접근하는 고도화된 공격 벡터 연구가 핵심이야.</p>
-            <div class="card-foot"><span class="src">www.reddit.com</span><a class="read-btn" href="https://www.reddit.com/r/netsec/comments/1tghcgy/attacking_cloud_service_providers_acsp_an/" target="_blank" rel="noopener">읽기</a></div>
+        <article class="card card-zz" style="background:rgba(15,150,130,0.03);box-shadow:rgba(15,150,130,0.14) 0px 0px 0px 1px inset,rgba(255,255,255,0.06) 0px 1px 0px inset,rgba(0,0,0,0.38) 0px 16px 36px;flex-direction:row-reverse">
+          
+          <div class="zz-deco">
+            <div class="zz-num">11</div>
+            <span class="badge" style="margin-top:12px">AI Security & Jailbreak</span>
+            <div class="dot-grid"></div>
           </div>
-        </article>
-        <article class="card card-grid-item">
-          <div class="card-inner">
-            <div class="card-meta">
-              <span class="badge">AI Security & Jailbreak</span>
-              <span class="card-rank">11</span>
-            </div>
-            <h3 class="card-title"><a href="https://www.reddit.com/r/cybersecurity/comments/1tgda6s/new_windows_miniplasma_zeroday_exploit_gives/" target="_blank" rel="noopener">New Windows 'MiniPlasma' zero-day exploit gives SYSTEM access, PoC released</a></h3>
-            <p class="card-summary">윈도우 미니플라즈마 제로데이 취약점으로 로컬 계정에서 시스템 권한까지 탈취 가능한 익스플로잇이 공개됐어.<br>커널 레벨 권한 상승을 유도하는 PoC 코드가 이미 배포된 상태라 보안 설정 점검이 시급한 상황이야.<br>시스템 드라이버나 프로세스 제어 흐름을 직접 건드리는 방식이라 운영체제 보안 아키텍처 결함으로 보여.</p>
+          <div class="zz-text">
+            <h3 style="font-size:0.87rem;font-weight:500;color:#d8ecf8;line-height:1.35;letter-spacing:-0.015em;margin-bottom:12px">
+              <a href="https://www.reddit.com/r/cybersecurity/comments/1tgda6s/new_windows_miniplasma_zeroday_exploit_gives/" target="_blank" rel="noopener">New Windows 'MiniPlasma' zero-day exploit gives SYSTEM access, PoC released</a>
+            </h3>
+            <p style="font-size:12.5px;color:var(--wh);line-height:1.75;margin-bottom:16px">윈도우 미니플라즈마 제로데이 취약점으로 인해 로컬 환경에서 시스템 권한 탈취가 가능해졌어.<br>공격자가 하위 권한으로 SYSTEM 계정의 임의 코드 실행을 유도할 수 있는 PoC 코드가 이미 공개된 상황이야.<br>OS 커널 레벨의 보안 결함으로 보이니 패치 나오기 전까지는 관련 서비스 프로세스 격리에 신경 써야 해.</p>
             <div class="card-foot"><span class="src">www.reddit.com</span><a class="read-btn" href="https://www.reddit.com/r/cybersecurity/comments/1tgda6s/new_windows_miniplasma_zeroday_exploit_gives/" target="_blank" rel="noopener">읽기</a></div>
           </div>
         </article>
-        <article class="card card-grid-item">
-          <div class="card-inner">
-            <div class="card-meta">
-              <span class="badge">AI Security & Jailbreak</span>
-              <span class="card-rank">12</span>
-            </div>
-            <h3 class="card-title"><a href="https://www.darkreading.com/vulnerabilities-threats/can-laws-stop-deepfakes-south-korea" target="_blank" rel="noopener">Can Laws Stop Deepfakes? South Korea Aims to Find Out</a></h3>
-            <p class="card-summary">한국 다음 달 지방선거에서 딥페이크 탐지 및 차단 규제의 실효성을 테스트할 예정이야.<br>생성형 AI로 제작된 허위 정보가 선거 결과에 미칠 영향을 파악하고 기술적 대응책을 강구하려는 의도야.<br>정치적 목적의 가짜 뉴스 확산을 막기 위해 딥페이크 판별 알고리즘과 플랫폼 차단 기술이 본격적으로 동원될 상황이야.</p>
-            <div class="card-foot"><span class="src">www.darkreading.com</span><a class="read-btn" href="https://www.darkreading.com/vulnerabilities-threats/can-laws-stop-deepfakes-south-korea" target="_blank" rel="noopener">읽기</a></div>
+        <article class="card card-zz" style="background:rgba(15,150,130,0.03);box-shadow:rgba(15,150,130,0.14) 0px 0px 0px 1px inset,rgba(255,255,255,0.06) 0px 1px 0px inset,rgba(0,0,0,0.38) 0px 16px 36px;flex-direction:row">
+          
+          <div class="zz-text">
+            <h3 style="font-size:0.87rem;font-weight:500;color:#d8ecf8;line-height:1.35;letter-spacing:-0.015em;margin-bottom:12px">
+              <a href="https://thehackernews.com/2026/05/miniplasma-windows-0-day-enables-system.html" target="_blank" rel="noopener">MiniPlasma Windows 0-Day Enables SYSTEM Privilege Escalation on Fully Patched Systems</a>
+            </h3>
+            <p style="font-size:12.5px;color:var(--wh);line-height:1.75;margin-bottom:16px">최신 윈도우 패치가 적용된 환경에서도 cldflt.sys 드라이버의 취약점을 이용해 SYSTEM 권한을 탈취하는 제로데이 공격 PoC가 공개됐어.<br>클라우드 파일 미니 필터 드라이버의 로직 결함을 악용하는 방식으로, 로컬 공격자가 관리자 권한을 넘어 시스템 최상위 권한까지 확보할 수 있는 상황이야.<br>지난번 YellowKey와 GreenPlasma를 발견한 연구원이 내놓은 거라 실무 단에서는 해당 드라이버의 동작 제어와 보안 정책 재점검이 시급해.</p>
+            <div class="card-foot"><span class="src">thehackernews.com</span><a class="read-btn" href="https://thehackernews.com/2026/05/miniplasma-windows-0-day-enables-system.html" target="_blank" rel="noopener">읽기</a></div>
+          </div>
+          <div class="zz-deco">
+            <div class="zz-num">12</div>
+            <span class="badge" style="margin-top:12px">AI Security & Jailbreak</span>
+            <div class="dot-grid"></div>
           </div>
         </article>
-        <article class="card card-grid-item">
-          <div class="card-inner">
-            <div class="card-meta">
-              <span class="badge">AI Security & Jailbreak</span>
-              <span class="card-rank">13</span>
-            </div>
-            <h3 class="card-title"><a href="https://www.bleepingcomputer.com/news/security/exploit-available-for-new-dirtydecrypt-linux-root-escalation-flaw/" target="_blank" rel="noopener">Exploit available for new DirtyDecrypt Linux root escalation flaw</a></h3>
-            <p class="card-summary">리눅스 커널 rxgk 모듈 내 로컬 권한 상승 취약점에 대한 개념 증명 코드가 공개됐어.<br>해당 결함은 공격자가 시스템 루트 권한을 탈취할 수 있는 심각한 수준이야.<br>이미 패치가 배포된 상황이니 서버 운영 환경에 즉시 커널 업데이트를 적용해야 해.</p>
+        <article class="card card-zz" style="background:rgba(15,150,130,0.03);box-shadow:rgba(15,150,130,0.14) 0px 0px 0px 1px inset,rgba(255,255,255,0.06) 0px 1px 0px inset,rgba(0,0,0,0.38) 0px 16px 36px;flex-direction:row-reverse">
+          
+          <div class="zz-deco">
+            <div class="zz-num">13</div>
+            <span class="badge" style="margin-top:12px">AI Security & Jailbreak</span>
+            <div class="dot-grid"></div>
+          </div>
+          <div class="zz-text">
+            <h3 style="font-size:0.87rem;font-weight:500;color:#d8ecf8;line-height:1.35;letter-spacing:-0.015em;margin-bottom:12px">
+              <a href="https://www.bleepingcomputer.com/news/security/exploit-available-for-new-dirtydecrypt-linux-root-escalation-flaw/" target="_blank" rel="noopener">Exploit available for new DirtyDecrypt Linux root escalation flaw</a>
+            </h3>
+            <p style="font-size:12.5px;color:var(--wh);line-height:1.75;margin-bottom:16px">리눅스 커널 rxgk 모듈 내 로컬 권한 상승 취약점에 대한 PoC 익스플로잇 코드가 공개됐어.<br>해당 취약점을 악용하면 비권한 사용자가 시스템 루트 권한을 탈취하는 게 가능해진 상황이야.<br>최신 커널 패치가 적용되지 않은 환경은 즉시 업데이트하지 않으면 커널 단에서 보안이 뚫릴 위험이 커.</p>
             <div class="card-foot"><span class="src">www.bleepingcomputer.com</span><a class="read-btn" href="https://www.bleepingcomputer.com/news/security/exploit-available-for-new-dirtydecrypt-linux-root-escalation-flaw/" target="_blank" rel="noopener">읽기</a></div>
           </div>
         </article>
-        <article class="card card-grid-item">
-          <div class="card-inner">
-            <div class="card-meta">
-              <span class="badge">Silicon Valley Tech Aggregator</span>
-              <span class="card-rank">14</span>
-            </div>
-            <h3 class="card-title"><a href="https://www.bloomberg.com/news/articles/2026-05-18/baidu-tops-sales-estimates-in-endorsement-of-agentic-ai-pivot" target="_blank" rel="noopener">Baidu AI Sales Eclipse Waning Legacy Ads for the First Time</a></h3>
-            <p class="card-summary">바이두 매출에서 AI 사업 부문이 기존 레거시 광고 매출을 처음으로 앞질렀어.<br>전통적인 검색 광고 수익은 계속 감소 중이지만 AI 인프라 매출이 하락 폭을 상쇄하며 1%대 매출 감소로 방어했어.<br>생성형 AI 모델 고도화로 알리바바 등 경쟁사들과 격차를 줄이며 포스트 챗GPT 시대 생존 전략을 수정하는 상황이야.</p>
-            <div class="card-foot"><span class="src">www.bloomberg.com</span><a class="read-btn" href="https://www.bloomberg.com/news/articles/2026-05-18/baidu-tops-sales-estimates-in-endorsement-of-agentic-ai-pivot" target="_blank" rel="noopener">읽기</a></div>
+        <article class="card card-zz" style="background:rgba(15,150,130,0.03);box-shadow:rgba(15,150,130,0.14) 0px 0px 0px 1px inset,rgba(255,255,255,0.06) 0px 1px 0px inset,rgba(0,0,0,0.38) 0px 16px 36px;flex-direction:row">
+          
+          <div class="zz-text">
+            <h3 style="font-size:0.87rem;font-weight:500;color:#d8ecf8;line-height:1.35;letter-spacing:-0.015em;margin-bottom:12px">
+              <a href="https://www.darkreading.com/vulnerabilities-threats/can-laws-stop-deepfakes-south-korea" target="_blank" rel="noopener">Can Laws Stop Deepfakes? South Korea Aims to Find Out</a>
+            </h3>
+            <p style="font-size:12.5px;color:var(--wh);line-height:1.75;margin-bottom:16px">한국 내년 선거에서 딥페이크 탐지 및 규제 실효성 대규모 필드 테스트 진행해.<br>생성형 AI로 제작된 영상의 악의적 유포를 차단할 기술적 필터링 성능이 관건이야.<br>정치적 목적의 허위 정보가 알고리즘을 타고 확산되는 걸 시스템으로 얼마나 막을지 지켜봐야 해.</p>
+            <div class="card-foot"><span class="src">www.darkreading.com</span><a class="read-btn" href="https://www.darkreading.com/vulnerabilities-threats/can-laws-stop-deepfakes-south-korea" target="_blank" rel="noopener">읽기</a></div>
+          </div>
+          <div class="zz-deco">
+            <div class="zz-num">14</div>
+            <span class="badge" style="margin-top:12px">AI Security & Jailbreak</span>
+            <div class="dot-grid"></div>
           </div>
         </article>
-        <article class="card card-grid-item">
-          <div class="card-inner">
-            <div class="card-meta">
-              <span class="badge">Silicon Valley Tech Aggregator</span>
-              <span class="card-rank">15</span>
-            </div>
-            <h3 class="card-title"><a href="https://news.crunchbase.com/venture/biggest-funding-rounds-anduril-voltagrid-mind-robotics/" target="_blank" rel="noopener">The Week’s 10 Biggest Funding Rounds: Anduril Leads Varied Lineup Of Large Deals</a></h3>
-            <p class="card-summary">안두릴 인더스트리가 50억 달러 규모의 대규모 투자를 유치하며 방산 기술 분야의 독보적인 스케일을 증명했어.<br>이번 주 펀딩은 단순히 소프트웨어를 넘어 로보틱스, 우주 항공, 데이터 인프라 등 물리적 세계를 제어하는 딥테크 영역으로 자금이 대거 쏠리는 상황이야.<br>추상적인 서비스 모델보다 하드웨어와 결합된 실질적인 기술 스택을 보유한 기업들이 시장의 거대한 자본을 독점하고 있어.</p>
+        <article class="card card-zz" style="background:rgba(15,150,130,0.03);box-shadow:rgba(15,150,130,0.14) 0px 0px 0px 1px inset,rgba(255,255,255,0.06) 0px 1px 0px inset,rgba(0,0,0,0.38) 0px 16px 36px;flex-direction:row-reverse">
+          
+          <div class="zz-deco">
+            <div class="zz-num">15</div>
+            <span class="badge" style="margin-top:12px">AI Hardware & Infra</span>
+            <div class="dot-grid"></div>
+          </div>
+          <div class="zz-text">
+            <h3 style="font-size:0.87rem;font-weight:500;color:#d8ecf8;line-height:1.35;letter-spacing:-0.015em;margin-bottom:12px">
+              <a href="https://arstechnica.com/tech-policy/2026/05/authors-fight-for-higher-payouts-from-anthropics-1-5b-copyright-settlement/" target="_blank" rel="noopener">Anthropic’s $1.5B copyright settlement is getting messy as judge delays approval</a>
+            </h3>
+            <p style="font-size:12.5px;color:var(--wh);line-height:1.75;margin-bottom:16px">앤스로픽 저작권 소송 합의안이 변호인단이 3억 2천만 달러의 수임료를 챙기려 합의를 서둘렀다는 의혹 때문에 법원에서 제동 걸렸어.<br>이번 합의는 LLM 학습 데이터의 저작권 문제와 관련된 기술적 가이드라인 설정에 중요한 선례가 될 예정이었는데 사실상 올스톱된 상황이야.<br>사법 리스크가 커지면서 향후 모델 학습을 위한 데이터셋 라이선싱 비용 산정 방식과 저작권 침해 관련 법적 프레임워크 구축도 상당 기간 지연될 거야.</p>
+            <div class="card-foot"><span class="src">arstechnica.com</span><a class="read-btn" href="https://arstechnica.com/tech-policy/2026/05/authors-fight-for-higher-payouts-from-anthropics-1-5b-copyright-settlement/" target="_blank" rel="noopener">읽기</a></div>
+          </div>
+        </article>
+        <article class="card card-zz" style="background:rgba(15,150,130,0.03);box-shadow:rgba(15,150,130,0.14) 0px 0px 0px 1px inset,rgba(255,255,255,0.06) 0px 1px 0px inset,rgba(0,0,0,0.38) 0px 16px 36px;flex-direction:row">
+          
+          <div class="zz-text">
+            <h3 style="font-size:0.87rem;font-weight:500;color:#d8ecf8;line-height:1.35;letter-spacing:-0.015em;margin-bottom:12px">
+              <a href="https://www.nextplatform.com/compute/2026/05/15/with-its-ipo-done-cerebras-can-get-back-to-pushing-the-ai-envelope/5241317" target="_blank" rel="noopener">With Its IPO Done, Cerebras Can Get Back To Pushing The AI Envelope</a>
+            </h3>
+            <p style="font-size:12.5px;color:var(--wh);line-height:1.75;margin-bottom:16px">세레브라스는 WSE-3 칩으로 4조 개 파라미터 모델을 단일 유닛에서 학습시키며 GPU 클러스터 병목을 하드웨어 레벨에서 해결했어.<br>기존 GPU의 분산 학습 오버헤드를 웨이퍼 스케일 아키텍처의 고대역폭 인터커넥트로 극복해 데이터 전송 지연을 최소화하는 구조야.<br>IPO 이후 확보한 자금으로 엔비디아 독점 시장에서 추론 속도와 대규모 모델 학습 효율성을 앞세워 본격적으로 점유율을 뺏어올 계획이야.</p>
+            <div class="card-foot"><span class="src">www.nextplatform.com</span><a class="read-btn" href="https://www.nextplatform.com/compute/2026/05/15/with-its-ipo-done-cerebras-can-get-back-to-pushing-the-ai-envelope/5241317" target="_blank" rel="noopener">읽기</a></div>
+          </div>
+          <div class="zz-deco">
+            <div class="zz-num">16</div>
+            <span class="badge" style="margin-top:12px">AI Hardware & Infra</span>
+            <div class="dot-grid"></div>
+          </div>
+        </article>
+        <article class="card card-zz" style="background:rgba(15,150,130,0.03);box-shadow:rgba(15,150,130,0.14) 0px 0px 0px 1px inset,rgba(255,255,255,0.06) 0px 1px 0px inset,rgba(0,0,0,0.38) 0px 16px 36px;flex-direction:row-reverse">
+          
+          <div class="zz-deco">
+            <div class="zz-num">17</div>
+            <span class="badge" style="margin-top:12px">Silicon Valley Tech Aggregator</span>
+            <div class="dot-grid"></div>
+          </div>
+          <div class="zz-text">
+            <h3 style="font-size:0.87rem;font-weight:500;color:#d8ecf8;line-height:1.35;letter-spacing:-0.015em;margin-bottom:12px">
+              <a href="https://news.crunchbase.com/venture/biggest-funding-rounds-anduril-voltagrid-mind-robotics/" target="_blank" rel="noopener">The Week’s 10 Biggest Funding Rounds: Anduril Leads Varied Lineup Of Large Deals</a>
+            </h3>
+            <p style="font-size:12.5px;color:var(--wh);line-height:1.75;margin-bottom:16px">안두릴 인더스트리가 50억 달러 규모의 대규모 투자를 유치하며 방산 기술 분야의 독보적인 자금 조달 능력을 입증했어.<br>물리적 세계를 다루는 로보틱스, 데이터 인프라, 우주 및 바이오테크 분야로 거대 자본이 쏠리는 추세가 뚜렷해.<br>AI 소프트웨어를 넘어 하드웨어와 실제 산업 현장에 직접 적용되는 딥테크 기업들이 시장의 핵심 동력이 된 상황이야.</p>
             <div class="card-foot"><span class="src">news.crunchbase.com</span><a class="read-btn" href="https://news.crunchbase.com/venture/biggest-funding-rounds-anduril-voltagrid-mind-robotics/" target="_blank" rel="noopener">읽기</a></div>
           </div>
-        </article></div>
+        </article>
   </div>
 
   <div class="divider">

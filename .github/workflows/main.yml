@@ -2,9 +2,9 @@ name: NoScroll Daily News
 
 on:
   schedule:
-    # UTC 기준 작성 (한국 시간 오전 8시 = UTC 오후 11시)
+    # UTC 22:00 = KST 07:00 (아침 7시)
     - cron: '0 22 * * *'
-  workflow_dispatch: # 수동으로 테스트 실행할 수 있는 버튼
+  workflow_dispatch: # 수동 테스트 버튼
 
 jobs:
   run-bot:
@@ -20,7 +20,7 @@ jobs:
 
       - name: 필수 라이브러리 설치
         run: |
-          pip install google-genai feedparser requests
+          pip install google-genai feedparser requests pyyaml
 
       - name: 파이썬 스크립트 실행 (텔레그램 전송)
         env:

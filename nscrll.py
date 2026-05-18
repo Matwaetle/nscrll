@@ -42,49 +42,68 @@ def resolve_google_news_url(google_url: str) -> str:
     except Exception:
         return google_url  # 실패하면 원본 반환
 
-def fetch_news(keywords: str, lang: str, region: str, limit: int, seen_urls: set) -> list:
-    url = build_google_news_url(keywords, lang, region)
-    feed = feedparser.parse(url)
-
+# ───────────────────────────────────────────
+# 글로벌 뉴스 수집 (Custom RSS + Google News US)
+# ───────────────────────────────────────────
+def fetch_news(interest: dict, lang: str, region: str, limit: int, seen_urls: set) -> list:
     results = []
-    for entry in feed.entries:
-        if len(results) >= limit:
-            break
+    
+    # 1. 해외 찐 개발자 커뮤니티(Hacker News, Reddit 등) 우선 수집
+    for rss_url in interest.get("custom_rss", []):
+        try:
+            feed = feedparser.parse(rss_url)
+            for entry in feed.entries:
+                if len(results) >= limit: break
+                link = entry.get('link', '')
+                if link in seen_urls: continue
+                seen_urls.add(link)
+                
+                results.append({
+                    'title': strip_html(entry.get('title', '')),
+                    'summary': strip_html(entry.get('description', entry.get('summary', ''))),
+                    'link': link
+                })
+        except Exception as e:
+            print(f"⚠️ RSS 파싱 에러 ({rss_url}): {e}")
 
-        title   = strip_html(entry.get('title', ''))
-        summary = strip_html(entry.get('summary', ''))
-        link    = resolve_google_news_url(entry.get('link', ''))
+    # 2. 개수가 부족하면 구글 뉴스(영문)에서 최신 기사 긁어오기
+    if len(results) < limit:
+        url = build_google_news_url(interest["keywords"], lang, region)
+        feed = feedparser.parse(url)
+        for entry in feed.entries:
+            if len(results) >= limit: break
+            link = resolve_google_news_url(entry.get('link', ''))
+            if link in seen_urls: continue
+            seen_urls.add(link)
 
-        # 중복 제거
-        if link in seen_urls:
-            continue
-        seen_urls.add(link)
-
-        results.append({'title': title, 'summary': summary, 'link': link})
+            results.append({
+                'title': strip_html(entry.get('title', '')),
+                'summary': strip_html(entry.get('summary', '')),
+                'link': link
+            })
 
     return results
 
-
 # ───────────────────────────────────────────
-# Gemini 요약
+# Gemini 요약 (까칠한 시니어 개발자 톤앤매너)
 # ───────────────────────────────────────────
 def summarize(article: dict, interest_name: str) -> str:
     prompt = f"""
-    너는 바쁜 시니어 개발자를 위해 실리콘밸리 테크 뉴스를 큐레이션 해주는 까칠하지만 유능한 동료 엔지니어 'NoScroll'이야.
-    다음 제공되는 뉴스 제목과 요약을 읽고, 개발자 입장에서 가장 솔깃할 만한 '핵심 팩트'만 짧게 요약해.
+너는 실리콘밸리 딥테크 트렌드에 빠삭하고 까칠한 동료 엔지니어 'NoScroll'이야.
+다음 영문 뉴스 제목과 요약을 읽고, 개발자 입장에서 가장 솔깃할 만한 핵심 팩트만 한국어로 딱 3줄 요약해 줘.
 
-    [절대 지켜야 할 출력 규칙]
-    1. 말투: "~습니다", "~전망입니다" 같은 딱딱한 뉴스 톤 절대 금지. "~했어.", "~라고 밝혀.", "~상황이야." 처럼 친근하지만 간결한 평어(반말)를 사용할 것.
-    2. 내용: 뻔한 배경 설명은 버리고, '누가 무슨 기술을 발표했는지', '어떤 칩셋이 나왔는지', '무슨 보안 이슈가 터졌는지' 등 가장 자극적이고 구체적인 팩트만 남길 것.
-    3. 형식: `[1]`, `-`, `**` 같은 마크다운 기호나 이모지(✨, 🚀)를 일절 쓰지 말고, 그냥 순수하게 텍스트만 3줄로 엔터 쳐서 출력할 것.
+[절대 지켜야 할 출력 규칙]
+1. 말투: "~습니다", "~전망입니다" 같은 뻔한 뉴스 톤 절대 금지. "~했어.", "~상황이야.", "~라고 해." 등 간결하고 쿨한 평어(반말) 사용.
+2. 내용: 불필요한 서론이나 배경 설명은 쳐내고, 새로운 벤치마크 점수, 하드웨어 아키텍처 변화, 뚫린 보안 취약점 등 가장 자극적이고 구체적인 기술 팩트만 남길 것.
+3. 형식: 마크다운 기호(-, *, [1])나 이모지(✨, 🚀)를 일절 쓰지 말고, 순수 텍스트로만 3줄을 엔터 쳐서 출력할 것.
 
-    [뉴스 데이터]
-    제목: {article.get('title', '')}
-    내용: {article.get('summary', '')}
-    """
+[뉴스 데이터]
+제목: {article.get('title', '')}
+내용: {article.get('summary', '')}
+"""
     try:
         response = client.models.generate_content(
-            model='gemini-3-flash-preview',
+            model='gemini-1.5-flash',
             contents=prompt,
         )
         return response.text.strip()

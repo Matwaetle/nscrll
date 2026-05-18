@@ -3,7 +3,7 @@ name: NoScroll Daily News
 on:
   schedule:
     # UTC 22:00 = KST 07:00
-    - cron: '55 21 * * *'
+    - cron: '55 19 * * *'
   workflow_dispatch:
 
 # GitHub Pages 배포를 위한 쓰기 권한

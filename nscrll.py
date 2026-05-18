@@ -105,20 +105,18 @@ def fetch_news(interest: dict, lang: str, region: str, limit: int, seen_urls: se
 # ───────────────────────────────────────────
 # 글로벌 랭킹 - 카테고리 경계 없이 동적 분배
 # ───────────────────────────────────────────
-def global_rank_and_select(articles_by_cat: dict, total_budget: int) -> dict:
+def global_rank_and_select(articles_by_cat: dict) -> dict:
     """
     모든 카테고리 기사를 한 번에 LLM에 넘겨서
-    오늘 실제로 이슈가 많은 카테고리에 자연스럽게 더 많이 배정.
-    LLM 호출 1회로 처리.
+    개수도 LLM이 동적으로 결정. 고정 쿼터 없음.
     """
-    # 전체 flatten (카테고리 태그 포함)
     flat = []
     for cat_name, articles in articles_by_cat.items():
         for a in articles:
             flat.append({**a, 'category': cat_name})
 
-    if len(flat) <= total_budget:
-        return articles_by_cat  # 이미 적으면 그냥 통과
+    if not flat:
+        return articles_by_cat
 
     numbered = "\n".join(
         f"[{i}] [{a['category']}] {a['title']}"
@@ -129,8 +127,10 @@ def global_rank_and_select(articles_by_cat: dict, total_budget: int) -> dict:
 너는 오늘의 AI/테크 뉴스 큐레이터야.
 아래는 여러 카테고리에서 수집된 기사 목록이야.
 
-카테고리 쿼터 없이, 오늘 실제로 중요한 기사 {total_budget}개를 골라.
-이슈가 많은 카테고리는 더 많이, 적은 날은 적게 — 자연스럽게 분배해.
+오늘 진짜 읽을 가치 있는 기사만 골라줘.
+- 고정 개수 없음. 오늘 이슈가 많으면 많이(최대 20개), 적으면 적게(최소 5개).
+- 카테고리 쿼터 없음. 오늘 핫한 분야가 있으면 거기서 더 뽑아도 됨.
+- 중복되거나 뻔한 분석 기사는 과감히 제외.
 
 결과는 인덱스 번호만 JSON 배열로. 다른 말 없이 JSON만.
 예시: [0, 3, 7, 12, 15]
@@ -139,7 +139,7 @@ def global_rank_and_select(articles_by_cat: dict, total_budget: int) -> dict:
 1. 새 모델/제품 출시, 벤치마크 결과, 획기적 기술 발표
 2. 인수합병, 대규모 투자, 핵심 인물 동향
 3. 보안 취약점, 정책/규제 변화
-4. 분석 기사, 인터뷰, 의견
+4. 분석 기사, 인터뷰 (위 기준 해당 없으면 제외)
 
 [기사 목록]
 {numbered}
@@ -148,13 +148,12 @@ def global_rank_and_select(articles_by_cat: dict, total_budget: int) -> dict:
         response = client.models.generate_content(model=MODEL, contents=prompt)
         raw      = re.sub(r'```[a-z]*', '', response.text.strip()).strip('`')
         indices  = json.loads(raw)
-        indices  = [i for i in indices if isinstance(i, int) and 0 <= i < len(flat)][:total_budget]
+        indices  = [i for i in indices if isinstance(i, int) and 0 <= i < len(flat)]
         selected = [flat[i] for i in indices]
     except Exception as e:
-        print(f"  ⚠️ 글로벌 랭킹 실패: {e} → 앞에서 {total_budget}개 사용")
-        selected = flat[:total_budget]
+        print(f"  ⚠️ 글로벌 랭킹 실패: {e} → 전체 반환")
+        selected = flat
 
-    # 카테고리별로 재조합
     result = {cat: [] for cat in articles_by_cat}
     for a in selected:
         result[a['category']].append(a)
@@ -478,7 +477,6 @@ if __name__ == "__main__":
     config    = load_config()
     interests = config["interests"]
     limit     = config.get("articles_per_interest", 15)
-    top_k     = config.get("top_k", 15)   # 전체 예산
     lang      = config.get("language", "en")
     region    = config.get("region", "US")
 
@@ -500,8 +498,8 @@ if __name__ == "__main__":
         print(f"  ✅ {len(articles)}개 수집")
 
     # ── 2. 글로벌 랭킹 (LLM 1회) ──────────────────
-    print(f"\n  🧠 전체 기사 글로벌 랭킹 중... (목표 {top_k}개)")
-    selected_by_cat = global_rank_and_select(articles_by_cat, top_k)
+    print(f"\n  🧠 전체 기사 글로벌 랭킹 중... (동적 선별)")
+    selected_by_cat = global_rank_and_select(articles_by_cat)
     total_selected  = sum(len(v) for v in selected_by_cat.values())
     print(f"  🎯 총 {total_selected}개 선별 완료")
     for cat, arts in selected_by_cat.items():

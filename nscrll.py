@@ -83,7 +83,7 @@ def summarize(article: dict, interest_name: str) -> str:
 """
     try:
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-3.1-pro',
             contents=prompt,
         )
         return response.text.strip()
@@ -161,7 +161,7 @@ if __name__ == "__main__":
             final_message += f"[{idx}] {article.get('title', '제목 없음')}\n"
             final_message += f"🔗 {article.get('link', '')}\n"
             final_message += f"✨ {summary}\n\n"
-            time.sleep(1)  # API 호출 간격
+            time.sleep(3)  # API 호출 간격
 
         final_message += "\n"
 

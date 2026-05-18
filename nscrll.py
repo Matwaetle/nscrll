@@ -3,21 +3,34 @@ import re
 import json
 import time
 import urllib.parse
+from datetime import date
+from pathlib import Path
 import feedparser
 import requests
 import yaml
 from google import genai
 
 # ───────────────────────────────────────────
-# 환경 변수
+# 환경 변수 & 상수
 # ───────────────────────────────────────────
 GEMINI_API_KEY     = os.environ.get("GEMINI_API_KEY")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+GITHUB_REPOSITORY  = os.environ.get("GITHUB_REPOSITORY", "")  # Actions에서 자동 주입
+
 client = genai.Client(api_key=GEMINI_API_KEY)
+MODEL  = "gemini-3.1-flash-lite-preview"  # 가장 저렴한 모델로 비용 제어
+TODAY  = date.today().isoformat()         # "2026-05-18"
+
+# GitHub Pages URL 자동 구성
+if GITHUB_REPOSITORY:
+    _owner, _repo = GITHUB_REPOSITORY.split("/", 1)
+    PAGES_BASE = f"https://{_owner}.github.io/{_repo}"
+else:
+    PAGES_BASE = ""
 
 
 # ───────────────────────────────────────────
-# 설정 불러오기
+# 설정
 # ───────────────────────────────────────────
 def load_config(path="config.yaml"):
     with open(path, "r", encoding="utf-8") as f:
@@ -30,23 +43,21 @@ def load_config(path="config.yaml"):
 def strip_html(text: str) -> str:
     return re.sub(r'<[^>]+>', '', text).strip()
 
-def resolve_google_news_url(google_url: str) -> str:
+def resolve_google_news_url(url: str) -> str:
     try:
-        res = requests.get(google_url, allow_redirects=True, timeout=5)
+        res = requests.get(url, allow_redirects=True, timeout=5)
         return res.url
     except Exception:
-        return google_url
+        return url
 
 def build_google_news_url(keywords: str, lang: str, region: str) -> str:
-    encoded = urllib.parse.quote(keywords)
-    return f"https://news.google.com/rss/search?q={encoded}&hl={lang}&gl={region}&ceid={region}:{lang}"
+    return f"https://news.google.com/rss/search?q={urllib.parse.quote(keywords)}&hl={lang}&gl={region}&ceid={region}:{lang}"
 
 
 # ───────────────────────────────────────────
 # 뉴스 수집 - 소스별 골고루
 # ───────────────────────────────────────────
 def fetch_from_rss(rss_url: str, per_source: int, seen_urls: set, resolve: bool = False) -> list:
-    """단일 RSS URL에서 per_source개 수집"""
     results = []
     try:
         feed = feedparser.parse(rss_url)
@@ -63,35 +74,26 @@ def fetch_from_rss(rss_url: str, per_source: int, seen_urls: set, resolve: bool 
                 'title':   strip_html(entry.get('title', '')),
                 'summary': strip_html(entry.get('description', entry.get('summary', ''))),
                 'link':    link,
-                'source':  rss_url
             })
     except Exception as e:
-        print(f"    ⚠️ RSS 파싱 에러 ({rss_url}): {e}")
+        print(f"    ⚠️ RSS 에러 ({rss_url.split('/')[2]}): {e}")
     return results
 
-def fetch_news(interest: dict, lang: str, region: str, total_limit: int, seen_urls: set) -> list:
-    """
-    모든 소스에서 골고루 수집.
-    소스 수에 따라 per_source를 동적으로 계산해서
-    한 소스가 전체 쿼터를 독점하지 않도록 함.
-    """
-    custom_rss_list = interest.get("custom_rss", [])
-    total_sources   = len(custom_rss_list) + 1  # +1은 Google News
-    per_source      = max(2, total_limit // total_sources)
+def fetch_news(interest: dict, lang: str, region: str, limit: int, seen_urls: set) -> list:
+    custom_rss    = interest.get("custom_rss", [])
+    total_sources = len(custom_rss) + 1
+    per_source    = max(2, limit // total_sources)
+    all_results   = []
 
-    all_results = []
-
-    # 1. Custom RSS 소스별 골고루 수집
-    for rss_url in custom_rss_list:
+    for rss_url in custom_rss:
         fetched = fetch_from_rss(rss_url, per_source, seen_urls)
         all_results.extend(fetched)
         if fetched:
-            print(f"    └ {len(fetched)}개 ← {rss_url.split('/')[2]}")  # 도메인만 출력
+            print(f"    └ {len(fetched)}개 ← {rss_url.split('/')[2]}")
 
-    # 2. Google News로 나머지 채우기
-    remaining = total_limit - len(all_results)
+    remaining = limit - len(all_results)
     if remaining > 0:
-        url  = build_google_news_url(interest["keywords"], lang, region)
+        url     = build_google_news_url(interest["keywords"], lang, region)
         fetched = fetch_from_rss(url, remaining, seen_urls, resolve=True)
         all_results.extend(fetched)
         if fetched:
@@ -101,71 +103,344 @@ def fetch_news(interest: dict, lang: str, region: str, total_limit: int, seen_ur
 
 
 # ───────────────────────────────────────────
-# 1단계: LLM으로 중요도 순위 매겨 top_k 선별
+# 글로벌 랭킹 - 카테고리 경계 없이 동적 분배
 # ───────────────────────────────────────────
-def rank_and_filter(articles: list, interest_name: str, top_k: int) -> list:
-    """제목 목록을 LLM에 한 번에 던져서 top_k개 인덱스를 받아옴 (1회 호출)"""
-    if len(articles) <= top_k:
-        return articles
+def global_rank_and_select(articles_by_cat: dict, total_budget: int) -> dict:
+    """
+    모든 카테고리 기사를 한 번에 LLM에 넘겨서
+    오늘 실제로 이슈가 많은 카테고리에 자연스럽게 더 많이 배정.
+    LLM 호출 1회로 처리.
+    """
+    # 전체 flatten (카테고리 태그 포함)
+    flat = []
+    for cat_name, articles in articles_by_cat.items():
+        for a in articles:
+            flat.append({**a, 'category': cat_name})
+
+    if len(flat) <= total_budget:
+        return articles_by_cat  # 이미 적으면 그냥 통과
 
     numbered = "\n".join(
-        f"[{i}] {a['title']}" for i, a in enumerate(articles)
+        f"[{i}] [{a['category']}] {a['title']}"
+        for i, a in enumerate(flat)
     )
 
     prompt = f"""
-너는 {interest_name} 분야의 AI/테크 뉴스 큐레이터야.
-아래 기사 제목 목록에서 오늘 가장 중요한 기사 {top_k}개를 골라 인덱스 번호만 JSON 배열로 출력해.
-다른 말은 일절 하지 말고 오직 JSON만. 예시: [0, 3, 7, 12]
+너는 오늘의 AI/테크 뉴스 큐레이터야.
+아래는 여러 카테고리에서 수집된 기사 목록이야.
 
-[선별 기준 - 우선순위 순]
-1. 새로운 모델/제품 출시, 벤치마크 결과, 획기적 기술 발표
-2. 업계 판도를 바꿀 인수합병, 대규모 투자, 핵심 인물 동향
-3. 보안 취약점, 정책 변화, 규제 이슈
-4. 일반 분석 기사, 인터뷰, 의견
+카테고리 쿼터 없이, 오늘 실제로 중요한 기사 {total_budget}개를 골라.
+이슈가 많은 카테고리는 더 많이, 적은 날은 적게 — 자연스럽게 분배해.
+
+결과는 인덱스 번호만 JSON 배열로. 다른 말 없이 JSON만.
+예시: [0, 3, 7, 12, 15]
+
+[선별 기준]
+1. 새 모델/제품 출시, 벤치마크 결과, 획기적 기술 발표
+2. 인수합병, 대규모 투자, 핵심 인물 동향
+3. 보안 취약점, 정책/규제 변화
+4. 분석 기사, 인터뷰, 의견
 
 [기사 목록]
 {numbered}
 """
     try:
-        response = client.models.generate_content(
-            model='gemini-3-flash-preview',
-            contents=prompt,
-        )
-        raw     = response.text.strip()
-        raw     = re.sub(r'```[a-z]*', '', raw).strip().strip('`')
-        indices = json.loads(raw)
-        indices = [i for i in indices if isinstance(i, int) and 0 <= i < len(articles)]
-        return [articles[i] for i in indices[:top_k]]
+        response = client.models.generate_content(model=MODEL, contents=prompt)
+        raw      = re.sub(r'```[a-z]*', '', response.text.strip()).strip('`')
+        indices  = json.loads(raw)
+        indices  = [i for i in indices if isinstance(i, int) and 0 <= i < len(flat)][:total_budget]
+        selected = [flat[i] for i in indices]
     except Exception as e:
-        print(f"  ⚠️ 랭킹 실패, 앞에서 {top_k}개로 대체: {e}")
-        return articles[:top_k]
+        print(f"  ⚠️ 글로벌 랭킹 실패: {e} → 앞에서 {total_budget}개 사용")
+        selected = flat[:total_budget]
+
+    # 카테고리별로 재조합
+    result = {cat: [] for cat in articles_by_cat}
+    for a in selected:
+        result[a['category']].append(a)
+    return result
 
 
 # ───────────────────────────────────────────
-# 2단계: 선별된 기사 개별 요약
+# 요약
 # ───────────────────────────────────────────
-def summarize(article: dict, interest_name: str) -> str:
+def summarize(article: dict) -> str:
     prompt = f"""
 너는 실리콘밸리 딥테크 트렌드에 빠삭하고 까칠한 동료 엔지니어 'NoScroll'이야.
-다음 영문 뉴스 제목과 요약을 읽고, 개발자 입장에서 가장 솔깃할 만한 핵심 팩트만 한국어로 딱 3줄 요약해 줘.
+다음 영문 뉴스를 개발자 입장에서 핵심 팩트만 한국어로 딱 3줄 요약해.
 
-[절대 지켜야 할 출력 규칙]
-1. 말투: "~습니다", "~전망입니다" 같은 뻔한 뉴스 톤 절대 금지. "~했어.", "~상황이야.", "~라고 해." 등 간결하고 쿨한 평어(반말) 사용.
-2. 내용: 불필요한 서론이나 배경 설명은 쳐내고, 새로운 벤치마크 점수, 하드웨어 아키텍처 변화, 뚫린 보안 취약점 등 가장 자극적이고 구체적인 기술 팩트만 남길 것.
-3. 형식: 마크다운 기호(-, *, [1])나 이모지(✨, 🚀)를 일절 쓰지 말고, 순수 텍스트로만 3줄을 엔터 쳐서 출력할 것.
+[규칙]
+1. "~습니다" 금지. "~했어.", "~상황이야." 등 반말 사용.
+2. 벤치마크 점수, 아키텍처 변화, 보안 취약점 등 구체적 기술 팩트 위주.
+3. 마크다운/이모지 없이 순수 텍스트 3줄.
 
-[뉴스 데이터]
 제목: {article.get('title', '')}
 내용: {article.get('summary', '')}
 """
     try:
-        response = client.models.generate_content(
-            model='gemini-3-flash-preview',
-            contents=prompt,
-        )
+        response = client.models.generate_content(model=MODEL, contents=prompt)
         return response.text.strip()
     except Exception as e:
-        return f"요약 실패 (에러: {e})"
+        return f"요약 실패: {e}"
+
+
+# ───────────────────────────────────────────
+# 텔레그램 하이라이트 (링크 전송용 3줄)
+# ───────────────────────────────────────────
+def generate_highlights(selected_by_cat: dict) -> str:
+    all_titles = []
+    for cat, articles in selected_by_cat.items():
+        for a in articles:
+            all_titles.append(f"[{cat}] {a['title']}")
+
+    if not all_titles:
+        return "(하이라이트 없음)"
+
+    prompt = f"""
+오늘의 AI/테크 뉴스 중 가장 임팩트 있는 3개만 골라 한 줄씩 한국어 반말로 요약해.
+각 줄 앞에 카테고리 이름을 붙여. 이모지/마크다운 없이 텍스트 3줄만.
+
+{chr(10).join(all_titles[:40])}
+"""
+    try:
+        response = client.models.generate_content(model=MODEL, contents=prompt)
+        return response.text.strip()
+    except Exception as e:
+        return f"하이라이트 생성 실패: {e}"
+
+
+# ───────────────────────────────────────────
+# HTML 리포트 생성
+# ───────────────────────────────────────────
+def generate_html(selected_by_cat: dict, summaries: dict) -> str:
+    """selected_by_cat: {cat_name: [article, ...]}, summaries: {link: summary_text}"""
+
+    # 목차 HTML
+    toc_items = ""
+    for cat, articles in selected_by_cat.items():
+        if not articles:
+            continue
+        anchor = re.sub(r'[^\w]', '-', cat)
+        toc_items += f'<li><a href="#{anchor}">{cat} ({len(articles)})</a></li>\n'
+
+    # 카테고리별 기사 HTML
+    sections_html = ""
+    for cat, articles in selected_by_cat.items():
+        if not articles:
+            continue
+        anchor   = re.sub(r'[^\w]', '-', cat)
+        cards_html = ""
+        for i, a in enumerate(articles, 1):
+            title   = a.get('title', '제목 없음')
+            link    = a.get('link', '#')
+            summary = summaries.get(link, '').replace('\n', '<br>')
+            domain  = link.split('/')[2] if '/' in link else link
+            cards_html += f"""
+            <article class="card">
+              <div class="card-num">{i}</div>
+              <div class="card-body">
+                <h3><a href="{link}" target="_blank" rel="noopener">{title}</a></h3>
+                <p class="summary">{summary}</p>
+                <span class="source">{domain}</span>
+              </div>
+            </article>"""
+
+        sections_html += f"""
+        <section id="{anchor}">
+          <h2>{cat}</h2>
+          {cards_html}
+        </section>"""
+
+    total_count = sum(len(v) for v in selected_by_cat.values())
+
+    return f"""<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NoScroll — {TODAY}</title>
+  <style>
+    :root {{
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3a;
+      --accent: #4f8ef7;
+      --text: #e2e8f0;
+      --muted: #8892a4;
+      --green: #34d399;
+    }}
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      line-height: 1.6;
+      padding: 0 1rem 4rem;
+      max-width: 860px;
+      margin: 0 auto;
+    }}
+    header {{
+      padding: 2.5rem 0 1.5rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2rem;
+    }}
+    header h1 {{
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.5px;
+    }}
+    header .meta {{
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-top: 0.3rem;
+    }}
+    nav.toc {{
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.2rem 1.5rem;
+      margin-bottom: 2.5rem;
+    }}
+    nav.toc h2 {{
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 0.8rem;
+    }}
+    nav.toc ul {{
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }}
+    nav.toc a {{
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.9rem;
+      background: rgba(79,142,247,0.1);
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+      border: 1px solid rgba(79,142,247,0.2);
+      transition: background 0.2s;
+    }}
+    nav.toc a:hover {{ background: rgba(79,142,247,0.25); }}
+    section {{ margin-bottom: 3rem; }}
+    section h2 {{
+      font-size: 1.1rem;
+      font-weight: 600;
+      padding-bottom: 0.6rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.2rem;
+    }}
+    .card {{
+      display: flex;
+      gap: 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.2rem;
+      margin-bottom: 0.9rem;
+      transition: border-color 0.2s;
+    }}
+    .card:hover {{ border-color: var(--accent); }}
+    .card-num {{
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--muted);
+      min-width: 1.5rem;
+      padding-top: 2px;
+    }}
+    .card-body {{ flex: 1; }}
+    .card h3 {{
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      line-height: 1.4;
+    }}
+    .card h3 a {{
+      color: var(--text);
+      text-decoration: none;
+    }}
+    .card h3 a:hover {{ color: var(--accent); }}
+    .summary {{
+      font-size: 0.875rem;
+      color: var(--muted);
+      line-height: 1.65;
+      margin-bottom: 0.5rem;
+    }}
+    .source {{
+      font-size: 0.75rem;
+      color: var(--green);
+      opacity: 0.8;
+    }}
+    footer {{
+      color: var(--muted);
+      font-size: 0.8rem;
+      text-align: center;
+      padding-top: 2rem;
+      border-top: 1px solid var(--border);
+    }}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📰 NoScroll Daily</h1>
+    <div class="meta">{TODAY} &nbsp;·&nbsp; 총 {total_count}개 기사</div>
+  </header>
+
+  <nav class="toc">
+    <h2>목차</h2>
+    <ul>{toc_items}</ul>
+  </nav>
+
+  {sections_html}
+
+  <footer>Generated by NoScroll · {TODAY}</footer>
+</body>
+</html>"""
+
+
+# ───────────────────────────────────────────
+# HTML 저장 (날짜당 1개, 덮어쓰기)
+# ───────────────────────────────────────────
+def save_html(html_content: str) -> Path:
+    docs_dir = Path("docs")
+    docs_dir.mkdir(exist_ok=True)
+
+    # 오늘 리포트 저장 (덮어쓰기)
+    report_path = docs_dir / f"{TODAY}.html"
+    report_path.write_text(html_content, encoding="utf-8")
+
+    # index.html 업데이트
+    reports = sorted(docs_dir.glob("????-??-??.html"), reverse=True)
+    links   = "\n".join(
+        f'<li><a href="{r.name}">{r.stem}</a></li>' for r in reports
+    )
+    index_html = f"""<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>NoScroll Archive</title>
+  <style>
+    body {{ font-family: sans-serif; background: #0f1117; color: #e2e8f0;
+           max-width: 400px; margin: 3rem auto; padding: 0 1rem; }}
+    h1 {{ color: #4f8ef7; margin-bottom: 1.5rem; }}
+    ul {{ list-style: none; padding: 0; }}
+    li {{ margin-bottom: 0.6rem; }}
+    a {{ color: #4f8ef7; text-decoration: none; }}
+    a:hover {{ text-decoration: underline; }}
+  </style>
+</head>
+<body>
+  <h1>📰 NoScroll Archive</h1>
+  <ul>{links}</ul>
+</body>
+</html>"""
+    (docs_dir / "index.html").write_text(index_html, encoding="utf-8")
+
+    return report_path
 
 
 # ───────────────────────────────────────────
@@ -188,7 +463,7 @@ def send_message(chat_id: int, text: str):
     for chunk in chunks:
         res = requests.post(url, json={"chat_id": chat_id, "text": chunk})
         if res.status_code == 200:
-            print("✅ 전송 완료!")
+            print("✅ 텔레그램 전송 완료!")
         else:
             print(f"❌ 전송 실패: {res.json()}")
         time.sleep(0.5)
@@ -203,7 +478,7 @@ if __name__ == "__main__":
     config    = load_config()
     interests = config["interests"]
     limit     = config.get("articles_per_interest", 15)
-    top_k     = config.get("top_k", 10)
+    top_k     = config.get("top_k", 15)   # 전체 예산
     lang      = config.get("language", "en")
     region    = config.get("region", "US")
 
@@ -212,39 +487,52 @@ if __name__ == "__main__":
         print("❌ 텔레그램 봇에게 먼저 말 걸고 다시 실행해줘!")
         exit()
 
-    final_message = "🤖 NoScroll 오늘의 뉴스 브리핑 🤖\n\n"
-    seen_urls     = set()
+    # ── 1. 모든 카테고리에서 수집 ──────────────────
+    seen_urls       = set()
+    articles_by_cat = {}
 
     for interest in interests:
-        name  = interest["name"]
-        emoji = interest.get("emoji", "📰")
-
-        # 1. 소스별 골고루 수집
+        name = interest["name"]
         src_count = len(interest.get("custom_rss", [])) + 1
-        print(f"\n  📡 [{name}] 수집 시작 ({src_count}개 소스, 목표 {limit}개)")
+        print(f"\n  📡 [{name}] 수집 중 ({src_count}개 소스)")
         articles = fetch_news(interest, lang, region, limit, seen_urls)
-        print(f"  ✅ 총 {len(articles)}개 수집 완료")
+        articles_by_cat[name] = articles
+        print(f"  ✅ {len(articles)}개 수집")
 
-        if not articles:
-            print(f"  ⚠️  [{name}] 기사 없음, 스킵")
-            continue
+    # ── 2. 글로벌 랭킹 (LLM 1회) ──────────────────
+    print(f"\n  🧠 전체 기사 글로벌 랭킹 중... (목표 {top_k}개)")
+    selected_by_cat = global_rank_and_select(articles_by_cat, top_k)
+    total_selected  = sum(len(v) for v in selected_by_cat.values())
+    print(f"  🎯 총 {total_selected}개 선별 완료")
+    for cat, arts in selected_by_cat.items():
+        if arts:
+            print(f"    └ {cat}: {len(arts)}개")
 
-        # 2. LLM으로 top_k 선별 (1회 호출)
-        print(f"  🧠 [{name}] 중요도 랭킹 중...")
-        selected = rank_and_filter(articles, name, top_k)
-        print(f"  🎯 {len(selected)}개 선별 완료")
+    # ── 3. 요약 생성 ───────────────────────────────
+    print(f"\n  ✍️  요약 생성 중...")
+    summaries = {}
+    for cat, articles in selected_by_cat.items():
+        for article in articles:
+            summaries[article['link']] = summarize(article)
+            time.sleep(1)
 
-        # 3. 선별된 기사만 요약
-        final_message += f"{emoji} {name}\n"
-        final_message += "━" * 20 + "\n"
+    # ── 4. HTML 리포트 생성 & 저장 ─────────────────
+    print(f"\n  📄 HTML 리포트 생성 중...")
+    html_content = generate_html(selected_by_cat, summaries)
+    report_path  = save_html(html_content)
+    report_url   = f"{PAGES_BASE}/{TODAY}.html" if PAGES_BASE else f"(로컬: {report_path})"
+    print(f"  ✅ 리포트 저장 완료: {report_path}")
 
-        for idx, article in enumerate(selected, 1):
-            summary = summarize(article, name)
-            final_message += f"[{idx}] {article.get('title', '제목 없음')}\n"
-            final_message += f"🔗 {article.get('link', '')}\n"
-            final_message += f"{summary}\n\n"
-            time.sleep(3)
+    # ── 5. 텔레그램 하이라이트 생성 ───────────────
+    print(f"\n  📱 텔레그램 메시지 생성 중...")
+    highlights = generate_highlights(selected_by_cat)
 
-        final_message += "\n"
+    telegram_msg = (
+        f"📰 NoScroll — {TODAY}\n"
+        f"총 {total_selected}개 기사 선별\n\n"
+        f"오늘의 하이라이트:\n{highlights}\n\n"
+        f"🔗 풀 리포트: {report_url}"
+    )
 
-    send_message(chat_id, final_message)
+    # ── 6. 전송 ───────────────────────────────────
+    send_message(chat_id, telegram_msg)

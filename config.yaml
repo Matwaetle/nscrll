@@ -1,25 +1,31 @@
-# 글로벌 세팅 (미국 구글 뉴스 기준)
+# 글로벌 세팅 (용량 대폭 확대)
 language: "en"
 region: "US"
-articles_per_interest: 2
+articles_per_interest: 5  # <--- 분야별 2개에서 5개로 확장! (총 20개 뉴스)
 
 interests:
-  - name: "🔥 Global AI & LLM"
-    keywords: "LLM benchmark OR OpenAI OR Anthropic"
+  - name: "🔥 Global AI, LLM & Trend"
+    keywords: "LLM benchmark OR OpenAI OR Anthropic OR DeepMind"
     emoji: "🤖"
-    # 해커뉴스와 레딧(LocalLLaMA)의 실시간 트렌딩 RSS
     custom_rss:
-      - "https://hnrss.org/newest?q=LLM"
+      - "https://hnrss.org/newest?q=LLM+OR+OpenAI"
       - "https://www.reddit.com/r/LocalLLaMA/top/.rss?t=day"
+      - "https://www.reddit.com/r/Singularity/top/.rss?t=day" # 트위터급 정보 속도
       
-  - name: "⚡ AI Hardware"
-    keywords: "AI hardware OR Cerebras OR Nvidia GPU"
+  - name: "⚡ AI Hardware & Infra"
+    keywords: "AI hardware OR Cerebras OR Nvidia GPU OR TPU"
     emoji: "🔬"
     custom_rss:
-      - "https://hnrss.org/newest?q=GPU+OR+Cerebras"
+      - "https://hnrss.org/newest?q=GPU+OR+Cerebras+OR+Nvidia"
       
-  - name: "🛡️ Cyber Security"
-    keywords: "AI cyber security OR prompt injection"
+  - name: "🛡️ AI Security & Jailbreak"
+    keywords: "AI cyber security OR prompt injection OR jailbreak"
     emoji: "🛡️"
     custom_rss:
-      - "https://hnrss.org/newest?q=AI+Security"
+      - "https://hnrss.org/newest?q=AI+Security+OR+Jailbreak"
+
+  - name: "🌐 Silicon Valley Tech Aggregator"
+    keywords: "AI startup OR tech funding"
+    emoji: "🇺🇸"
+    custom_rss:
+      - "https://www.techmeme.com/feed.xml" # 실리콘밸리 필수 테크 정보 집약체
